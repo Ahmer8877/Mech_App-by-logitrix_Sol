@@ -36,7 +36,11 @@ class UserProfile {
       role: map['role'] == 'mechanic' ? UserRole.mechanic : UserRole.customer,
       avatarUrl: map['avatar_url'],
       cnic: map['cnic_number'],
-      rating: (map['rating'] as num?)?.toDouble() ?? 5.0,
+      // `rating` belongs to mechanics. Customer profiles must not inherit
+      // the mechanics' default 5.0 rating from the database.
+      rating: map['role'] == 'mechanic'
+          ? (map['rating'] as num?)?.toDouble() ?? 5.0
+          : 0.0,
       totalJobs: map['total_jobs'] ?? 0,
       isVerified: map['is_verified'] ?? false,
     );

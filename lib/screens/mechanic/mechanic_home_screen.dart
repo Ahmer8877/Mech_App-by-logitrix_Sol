@@ -67,22 +67,22 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                         radius: 17,
                         backgroundColor: c.surface2,
                         backgroundImage:
-                            userProfile.avatarUrl != null &&
-                                userProfile.avatarUrl!.isNotEmpty
+                        userProfile.avatarUrl != null &&
+                            userProfile.avatarUrl!.isNotEmpty
                             ? NetworkImage(userProfile.avatarUrl!)
-                                  as ImageProvider
+                        as ImageProvider
                             : null,
                         child:
-                            (userProfile.avatarUrl == null ||
-                                userProfile.avatarUrl!.isEmpty)
+                        (userProfile.avatarUrl == null ||
+                            userProfile.avatarUrl!.isEmpty)
                             ? Text(
-                                userProfile.initials,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: scheme.primary,
-                                ),
-                              )
+                          userProfile.initials,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.primary,
+                          ),
+                        )
                             : null,
                       ),
                     ),
@@ -107,16 +107,14 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 ),
                 child: Column(
                   children: [
-                    Text(
-                      "TODAY'S EARNINGS",
-                      style: TextStyle(
-                        color: scheme.onPrimary.withValues(alpha: 0.75),
-                        fontSize: 9.5,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
                     const SizedBox(height: 4),
-                    Text(
+                    statsAsync.isLoading
+                        ? SizedBox(
+                      height: 26,
+                      width: 26,
+                      child: CircularProgressIndicator(strokeWidth: 2.4, color: scheme.onPrimary.withValues(alpha: 0.7)),
+                    )
+                        : Text(
                       'PKR ${stats.todayEarnings.toStringAsFixed(0)}',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(color: scheme.onPrimary, fontSize: 22),
@@ -214,62 +212,62 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 ),
               )
             else if (stats.recentRequestId == null)
-              AppCard(
-                child: Text(
-                  'No new service requests right now.',
-                  style: TextStyle(fontSize: 11, color: c.textMuted),
-                ),
-              )
-            else
-              AppCard(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            '⚙️ ${stats.recentRequestService ?? 'Service Request'}',
-                            style: const TextStyle(
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
+                AppCard(
+                  child: Text(
+                    'No new service requests right now.',
+                    style: TextStyle(fontSize: 11, color: c.textMuted),
+                  ),
+                )
+              else
+                AppCard(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '⚙️ ${stats.recentRequestService ?? 'Service Request'}',
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
-                        ),
-                        if (stats.recentRequestBudget != null)
-                          Text(
-                            'PKR ${stats.recentRequestBudget!.toStringAsFixed(0)}',
-                            style: TextStyle(fontSize: 9.5, color: c.textMuted),
+                          if (stats.recentRequestBudget != null)
+                            Text(
+                              'PKR ${stats.recentRequestBudget!.toStringAsFixed(0)}',
+                              style: TextStyle(fontSize: 9.5, color: c.textMuted),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        stats.recentRequestAddress ?? 'Location unavailable',
+                        style: TextStyle(fontSize: 9.5, color: c.textSecondary),
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlineActionButton(
+                              label: 'View Details',
+                              onPressed: () => setState(() => _navIndex = 1),
+                            ),
                           ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      stats.recentRequestAddress ?? 'Location unavailable',
-                      style: TextStyle(fontSize: 9.5, color: c.textSecondary),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlineActionButton(
-                            label: 'View Details',
-                            onPressed: () => setState(() => _navIndex = 1),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: AccentButton(
+                              label: 'Send Offer',
+                              onPressed: () => setState(() => _navIndex = 1),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: AccentButton(
-                            label: 'Send Offer',
-                            onPressed: () => setState(() => _navIndex = 1),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
             const SizedBox(height: 16),
             if (statsAsync.isLoading)
               const SizedBox.shrink()
@@ -279,9 +277,9 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                   progress: stats.completedJobs == 0
                       ? 0
                       : (stats.completedJobs /
-                                (stats.completedJobs + stats.ongoingJobs + 1))
-                            .clamp(0.0, 1.0)
-                            .toDouble(),
+                      (stats.completedJobs + stats.ongoingJobs + 1))
+                      .clamp(0.0, 1.0)
+                      .toDouble(),
                   size: 90,
                 ),
               ),

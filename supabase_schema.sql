@@ -345,7 +345,8 @@ CREATE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION public.protect_profile_fields()
 RETURNS TRIGGER AS $$
 BEGIN
-  IF auth.uid() = OLD.id THEN
+  IF auth.uid() = OLD.id
+     AND COALESCE(current_setting('app.allow_server_profile_fields', true), '') <> 'on' THEN
     NEW.id := OLD.id;
     NEW.role := OLD.role;
     NEW.cnic_number := OLD.cnic_number;
@@ -580,3 +581,153 @@ BEGIN
  INSERT INTO public.notifications(user_id,title,subtitle,icon_name) VALUES (v_mechanic,'Offer accepted','Your offer was selected by the customer','check_circle_outline');
 END; $$;
 GRANT EXECUTE ON FUNCTION public.accept_offer(uuid,uuid) TO authenticated;
+
+-- ---------------------------------------------------------------------
+-- 14. REALTIME ROBUSTNESS FOR LIVE DASHBOARD / LOCATION
+-- ---------------------------------------------------------------------
+-- FULL replica identity makes UPDATE/DELETE payloads complete, including
+-- mechanic_id/status changes that move a booking between realtime views.
+ALTER TABLE public.bookings REPLICA IDENTITY FULL;
+ALTER TABLE public.booking_locations REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'bookings'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.bookings;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'booking_locations'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.booking_locations;
+  END IF;
+END $$;
+
+-- Keep mechanic job counters synchronized with completed bookings.
+CREATE OR REPLACE FUNCTION public.recalculate_mechanic_total_jobs()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_mechanic UUID;
+BEGIN
+  v_mechanic := CASE
+    WHEN TG_OP = 'DELETE' THEN OLD.mechanic_id
+    ELSE NEW.mechanic_id
+  END;
+
+  -- Allow this trusted server-side trigger to update the protected counter.
+  PERFORM set_config('app.allow_server_profile_fields', 'on', true);
+
+  UPDATE public.profiles p
+  SET total_jobs = (
+    SELECT COUNT(*)
+    FROM public.bookings b
+    WHERE b.mechanic_id = p.id
+      AND b.status = 'completed'
+  )
+  WHERE p.id = v_mechanic;
+
+  -- If a booking changes mechanic, also refresh the previous mechanic.
+  IF TG_OP = 'UPDATE' AND OLD.mechanic_id IS DISTINCT FROM NEW.mechanic_id
+     AND OLD.mechanic_id IS NOT NULL THEN
+    UPDATE public.profiles p
+    SET total_jobs = (
+      SELECT COUNT(*)
+      FROM public.bookings b
+      WHERE b.mechanic_id = p.id
+        AND b.status = 'completed'
+    )
+    WHERE p.id = OLD.mechanic_id;
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS on_booking_change_update_jobs ON public.bookings;
+CREATE TRIGGER on_booking_change_update_jobs
+AFTER INSERT OR UPDATE OR DELETE ON public.bookings
+FOR EACH ROW EXECUTE FUNCTION public.recalculate_mechanic_total_jobs();
+
+-- Backfill counters once after installing the trigger.
+UPDATE public.profiles p
+SET total_jobs = (
+  SELECT COUNT(*)
+  FROM public.bookings b
+  WHERE b.mechanic_id = p.id
+    AND b.status = 'completed'
+)
+WHERE p.role = 'mechanic';
+
+-- =====================================================================
+-- MECHANIC RATING PATCH
+-- Rating is calculated only from customer reviews of that mechanic.
+-- Customer profiles do not use the profiles.rating field.
+-- =====================================================================
+
+CREATE OR REPLACE FUNCTION public.recalculate_mechanic_rating()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_mechanic UUID;
+  v_old_mechanic UUID;
+BEGIN
+  v_mechanic := CASE WHEN TG_OP = 'DELETE' THEN OLD.mechanic_id ELSE NEW.mechanic_id END;
+  v_old_mechanic := CASE WHEN TG_OP = 'UPDATE' THEN OLD.mechanic_id ELSE NULL END;
+
+  -- Rating is server-controlled, so temporarily allow this trusted trigger
+  -- to update the protected profile field.
+  PERFORM set_config('app.allow_server_profile_fields', 'on', true);
+
+  UPDATE public.profiles
+  SET rating = COALESCE(
+    (SELECT ROUND(AVG(r.rating)::numeric, 2)
+     FROM public.reviews r
+     WHERE r.mechanic_id = v_mechanic),
+    5.0
+  )
+  WHERE id = v_mechanic
+    AND role = 'mechanic';
+
+  -- If a review is moved from one mechanic to another, refresh both.
+  IF v_old_mechanic IS NOT NULL AND v_old_mechanic IS DISTINCT FROM v_mechanic THEN
+    UPDATE public.profiles
+    SET rating = COALESCE(
+      (SELECT ROUND(AVG(r.rating)::numeric, 2)
+       FROM public.reviews r
+       WHERE r.mechanic_id = v_old_mechanic),
+      5.0
+    )
+    WHERE id = v_old_mechanic
+      AND role = 'mechanic';
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS on_review_change_update_rating ON public.reviews;
+CREATE TRIGGER on_review_change_update_rating
+AFTER INSERT OR UPDATE OR DELETE ON public.reviews
+FOR EACH ROW EXECUTE FUNCTION public.recalculate_mechanic_rating();
+
+-- Existing mechanic ratings: calculate them from real reviews.
+UPDATE public.profiles p
+SET rating = COALESCE(
+  (SELECT ROUND(AVG(r.rating)::numeric, 2)
+   FROM public.reviews r
+   WHERE r.mechanic_id = p.id),
+  5.0
+)
+WHERE p.role = 'mechanic';
+
+-- Customer profiles do not have a mechanic rating.
+UPDATE public.profiles
+SET rating = 0
+WHERE role <> 'mechanic';

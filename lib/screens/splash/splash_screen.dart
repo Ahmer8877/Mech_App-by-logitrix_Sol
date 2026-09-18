@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../cores/models/user_role.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/theme/app_theme.dart';
@@ -22,48 +23,52 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _controller =
-        AnimationController(
-            vsync: this,
-            duration: const Duration(milliseconds: 1400),
-          )
-          ..forward()
-          ..addStatusListener((status) {
-            if (status == AnimationStatus.completed) {
-              Future.delayed(const Duration(milliseconds: 300), () {
-                if (mounted) {
-                  _navigateNext();
-                }
-              });
-            }
-          });
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..forward()..addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _navigateNext();
+          }
+        });
+      }
+    });
   }
 
   Future<void> _navigateNext() async {
-    // Wait for Supabase's persisted session + profile restore. Do not use a
-    // fixed retry loop here because it creates a race on cold app starts.
-    await ref.read(authProvider.notifier).initializationFuture;
+    final currentUser = Supabase.instance.client.auth.currentUser;
+
+    if (currentUser != null) {
+      // Fetch fresh profile from database for persistent active session
+      final profileLoaded = await ref
+          .read(authProvider.notifier)
+          .fetchUserProfile(currentUser.id);
+
+      if (!mounted) return;
+
+      final authState = ref.read(authProvider);
+
+      if (profileLoaded && authState.profile != null) {
+        final userProfile = ref.read(currentUserProfileProvider);
+
+        if (userProfile.role == UserRole.mechanic) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const MechanicHomeScreen()),
+          );
+        } else {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+          );
+        }
+        return;
+      }
+    }
 
     if (!mounted) return;
 
-    final authState = ref.read(authProvider);
-    final userProfile = authState.profile;
-
-    if (authState.user != null &&
-        userProfile != null &&
-        authState.errorMessage == null) {
-      if (userProfile.role == UserRole.mechanic) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MechanicHomeScreen()),
-        );
-      } else {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
-        );
-      }
-      return;
-    }
-
+    // No active session -> Show Role Selection screen
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
     );

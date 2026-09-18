@@ -25,13 +25,18 @@ class OnTheWayScreen extends ConsumerStatefulWidget {
 
 class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
   StreamSubscription<Position>? _positionSubscription;
+  StreamSubscription<ServiceStatus>? _serviceStatusSubscription;
   LiveLocation? _myLocation;
   bool _starting = true;
+  bool _locationServiceOff = false;
+  bool _locationPermissionDenied = false;
+  bool _locationPermissionDeniedForever = false;
   String? _locationError;
 
   @override
   void initState() {
     super.initState();
+    _watchLocationService();
     _startLocationTracking();
   }
 
@@ -42,19 +47,47 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
       return;
     }
 
-    try {
-      final permission = await _ensureLocationPermission();
-      if (!permission) {
-        if (mounted) {
-          setState(() {
-            _locationError =
-                'Please allow location permission and turn on GPS.';
-            _starting = false;
-          });
-        }
-        return;
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (mounted) {
+        setState(() {
+          _locationServiceOff = true;
+          _locationError = null;
+          _starting = false;
+        });
       }
+      return;
+    }
 
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        setState(() {
+          _locationServiceOff = false;
+          _locationPermissionDenied = permission == LocationPermission.denied;
+          _locationPermissionDeniedForever =
+              permission == LocationPermission.deniedForever;
+          _locationError = null;
+          _starting = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _locationServiceOff = false;
+        _locationPermissionDenied = false;
+        _locationPermissionDeniedForever = false;
+        _locationError = null;
+        _starting = true;
+      });
+    }
+
+    try {
       // The moment the mechanic starts navigation, mark the job as on the way.
       await ref
           .read(bookingRepositoryProvider)
@@ -71,43 +104,60 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
       );
       _setMyLocation(mechanicId, firstPosition);
 
-      _positionSubscription =
-          Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              distanceFilter: 10,
-            ),
-          ).listen((position) async {
-            try {
-              await repository.updateMechanicLocation(
-                bookingId: widget.bookingId,
-                mechanicId: mechanicId,
-                position: position,
-              );
-              _setMyLocation(mechanicId, position);
-            } catch (e) {
-              if (mounted)
-                setState(() => _locationError = 'GPS update failed: $e');
-            }
-          });
+      await _positionSubscription?.cancel();
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
+      ).listen((position) async {
+        try {
+          await repository.updateMechanicLocation(
+            bookingId: widget.bookingId,
+            mechanicId: mechanicId,
+            position: position,
+          );
+          _setMyLocation(mechanicId, position);
+        } catch (e) {
+          if (mounted) {
+            setState(() => _locationError = 'GPS update failed: $e');
+          }
+        }
+      });
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         setState(() => _locationError = 'Unable to start live location: $e');
+      }
     } finally {
       if (mounted) setState(() => _starting = false);
     }
   }
 
-  Future<bool> _ensureLocationPermission() async {
-    if (!await Geolocator.isLocationServiceEnabled()) return false;
-
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+  Future<void> _openLocationSettings() async {
+    if (_locationPermissionDeniedForever) {
+      await Geolocator.openAppSettings();
+    } else {
+      await Geolocator.openLocationSettings();
     }
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (mounted) await _startLocationTracking();
+  }
 
-    return permission != LocationPermission.denied &&
-        permission != LocationPermission.deniedForever;
+  void _watchLocationService() {
+    _serviceStatusSubscription?.cancel();
+    _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen((status) {
+      if (!mounted) return;
+      if (status == ServiceStatus.enabled) {
+        _startLocationTracking();
+      } else {
+        _positionSubscription?.cancel();
+        _positionSubscription = null;
+        setState(() {
+          _locationServiceOff = true;
+          _starting = false;
+        });
+      }
+    });
   }
 
   void _setMyLocation(String mechanicId, Position position) {
@@ -162,6 +212,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
   @override
   void dispose() {
     _positionSubscription?.cancel();
+    _serviceStatusSubscription?.cancel();
     super.dispose();
   }
 
@@ -180,7 +231,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
         data: (booking) {
           final customer = booking?['customer'] as Map?;
           final name = customer?['full_name']?.toString() ?? 'Customer';
-          final customerId = customer?['id']?.toString() ?? '';
+          final customerId = (customer?['id'] ?? booking?['customer_id'])?.toString() ?? '';
           final initials = name
               .split(' ')
               .where((x) => x.isNotEmpty)
@@ -191,9 +242,9 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
 
           final liveCustomer = liveLocation?.hasCustomerLocation == true
               ? LatLng(
-                  liveLocation!.customerLatitude!,
-                  liveLocation.customerLongitude!,
-                )
+            liveLocation!.customerLatitude!,
+            liveLocation.customerLongitude!,
+          )
               : _customerLocation(booking);
 
           return Padding(
@@ -206,24 +257,57 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
                     mechanicLocation: _myLocation,
                   ),
                 ),
-                if (_starting)
+                if (_locationServiceOff ||
+                    _locationPermissionDenied ||
+                    _locationPermissionDeniedForever)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_off_outlined),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _locationPermissionDeniedForever
+                                  ? 'Location permission is permanently denied. Enable it in app settings.'
+                                  : _locationPermissionDenied
+                                  ? 'Location permission is required for live navigation.'
+                                  : 'GPS is turned off. Turn on Location to start live navigation.',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _openLocationSettings,
+                            child: Text(_locationPermissionDeniedForever ? 'Settings' : 'Turn On'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (_starting)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Text('Starting live GPS tracking...'),
                   )
                 else if (_locationError != null)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      _locationError!,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: context.colors.textMuted,
-                        fontSize: 11,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        _locationError!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: context.colors.textMuted,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
-                  ),
                 Text(
                   booking?['pickup_address']?.toString() ?? '',
                   maxLines: 1,
@@ -237,14 +321,14 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
                         onPressed: customerId.isEmpty
                             ? null
                             : () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => CallScreen(
-                                    name: name,
-                                    initials: initials,
-                                  ),
-                                ),
-                              ),
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CallScreen(
+                              name: name,
+                              initials: initials,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -254,15 +338,15 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
                         onPressed: customerId.isEmpty
                             ? null
                             : () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    bookingId: widget.bookingId,
-                                    otherUserId: customerId,
-                                    otherName: name,
-                                  ),
-                                ),
-                              ),
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              bookingId: widget.bookingId,
+                              otherUserId: customerId,
+                              otherName: name,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],

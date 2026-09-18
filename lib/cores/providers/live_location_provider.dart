@@ -3,19 +3,19 @@ import '../config/supabase_config.dart';
 import '../repositories/live_location_repository.dart';
 
 final liveLocationRepositoryProvider = Provider<LiveLocationRepository>(
-  (ref) => LiveLocationRepository(supabase),
+        (ref) => LiveLocationRepository(supabase),
 );
 
 final bookingLiveLocationProvider =
-    StreamProvider.family<LiveLocation?, String>(
-      (ref, bookingId) => ref
-          .read(liveLocationRepositoryProvider)
-          .watchBookingLocation(bookingId),
-    );
+StreamProvider.family<LiveLocation?, String>(
+        (ref, bookingId) => ref
+        .read(liveLocationRepositoryProvider)
+        .watchBookingLocation(bookingId),
+);
 
 final mechanicLiveLocationProvider =
-    StreamProvider.family<LiveLocation?, String>(
-      (ref, bookingId) => ref
-          .read(liveLocationRepositoryProvider)
-          .watchMechanicLocation(bookingId),
-    );
+StreamProvider.family<LiveLocation?, String>(
+        (ref, bookingId) => ref
+        .read(liveLocationRepositoryProvider)
+        .watchMechanicLocation(bookingId),
+);

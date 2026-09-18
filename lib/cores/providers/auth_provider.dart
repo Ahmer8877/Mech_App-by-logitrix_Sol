@@ -1,41 +1,26 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide AuthState;
 import '../config/supabase_config.dart';
 import '../models/user_profile_model.dart';
 import '../models/user_role.dart';
 
 /// Provider for tracking currently selected role during role selection / signup
-final selectedRoleProvider = StateProvider<UserRole>(
-  (ref) => UserRole.customer,
-);
+final selectedRoleProvider = StateProvider<UserRole>((ref) => UserRole.customer);
 
 /// Riverpod StateNotifier for managing Authentication state & user profile fetching
 class AuthNotifier extends StateNotifier<AppAuthState> {
   static UserRole targetRole = UserRole.customer;
 
-  final Completer<void> _initializationCompleter = Completer<void>();
-  StreamSubscription<AuthState>? _authSubscription;
-
   AuthNotifier()
-    : super(
-        AppAuthState(
-          isLoading: true,
-          user: Supabase.instance.client.auth.currentUser,
-        ),
-      ) {
+      : super(AppAuthState(
+    user: Supabase.instance.client.auth.currentUser,
+  )) {
     _initUser();
   }
-
-  /// Completes once the persisted Supabase session has been restored and
-  /// its profile has been loaded. SplashScreen waits for this instead of
-  /// guessing with a fixed delay.
-  Future<void> get initializationFuture => _initializationCompleter.future;
 
   void setTargetRole(UserRole role) {
     targetRole = role;
@@ -43,129 +28,137 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
   }
 
   Future<void> _initUser() async {
-    try {
-      final user = supabase.auth.currentUser;
-
-      if (user != null) {
-        await _loadExistingSession(user);
-      } else {
-        state = const AppAuthState(isLoading: false);
-      }
-
-      // IMPORTANT: INITIAL_SESSION can fire after app startup. It represents
-      // the already-persisted session, so it must NOT be compared with
-      // targetRole (targetRole is only for a newly initiated login flow).
-      _authSubscription = supabase.auth.onAuthStateChange.listen((data) async {
-        final sessionUser = data.session?.user;
-
-        if (sessionUser == null) {
-          state = const AppAuthState(isLoading: false);
-          return;
-        }
-
-        // For an already authenticated account, the database profile is the
-        // source of truth for role. Never sign the user out just because the
-        // in-memory targetRole reset to customer after an app restart.
-        await _loadExistingSession(sessionUser);
-      });
-    } finally {
-      if (!_initializationCompleter.isCompleted) {
-        _initializationCompleter.complete();
-      }
+    final user = supabase.auth.currentUser;
+    if (user != null) {
+      await fetchUserProfile(user.id);
     }
-  }
 
-  Future<void> _loadExistingSession(User user) async {
-    try {
-      Map<String, dynamic>? response;
+    supabase.auth.onAuthStateChange.listen((data) async {
+      final user = data.session?.user;
+      if (user == null) return;
 
-      for (var attempt = 0; attempt < 3; attempt++) {
-        try {
-          response = await supabase
-              .from('profiles')
-              .select()
-              .eq('id', user.id)
-              .maybeSingle();
-          break;
-        } on PostgrestException catch (e) {
-          if (attempt == 2) rethrow;
-          if (e.message.contains('JWT issued at future') ||
-              e.code == 'PGRST303' ||
-              e.code == '401') {
-            await Future.delayed(Duration(seconds: attempt + 1));
-          } else {
-            rethrow;
+      // During a normal app restart there is no selected portal role yet.
+      // The persisted database profile is the source of truth. Do not compare
+      // it with targetRole here, otherwise a mechanic can be treated as a
+      // customer simply because targetRole defaults to customer.
+      final profileResponse = await _loadProfile(user.id);
+
+      if (profileResponse != null) {
+        final fetchedProfile = UserProfile.fromMap(profileResponse);
+
+        // Only a genuinely new OAuth profile may inherit the role selected
+        // immediately before signup. Existing accounts always keep the role
+        // stored in profiles.
+        bool isNewSocialSignup = false;
+        final createdAtRaw = profileResponse['created_at']?.toString();
+        if (createdAtRaw != null) {
+          final createdAt = DateTime.tryParse(createdAtRaw);
+          if (data.event.name == 'signedIn' &&
+              createdAt != null &&
+              DateTime.now().difference(createdAt).inSeconds.abs() < 45) {
+            isNewSocialSignup = true;
           }
         }
-      }
 
-      if (response == null) {
+        if (isNewSocialSignup && fetchedProfile.role != targetRole) {
+          try {
+            await supabase
+                .from('profiles')
+                .update({'role': targetRole.name})
+                .eq('id', user.id);
+          } catch (_) {
+            // Keep the database value if the role update is rejected.
+          }
+        }
+
+        final finalRole = isNewSocialSignup ? targetRole : fetchedProfile.role;
         state = state.copyWith(
-          isLoading: false,
           user: user,
-          profile: null,
-          errorMessage:
-              'Your account profile could not be loaded. Please try again.',
+          profile: finalRole == fetchedProfile.role
+              ? fetchedProfile
+              : UserProfile(
+            id: fetchedProfile.id,
+            fullName: fetchedProfile.fullName,
+            email: fetchedProfile.email,
+            phone: fetchedProfile.phone,
+            role: finalRole,
+            avatarUrl: fetchedProfile.avatarUrl,
+            cnic: fetchedProfile.cnic,
+            rating: fetchedProfile.rating,
+            totalJobs: fetchedProfile.totalJobs,
+            isVerified: fetchedProfile.isVerified,
+          ),
+          role: finalRole,
+          isLoading: false,
+          errorMessage: null,
         );
         return;
       }
 
-      final profile = UserProfile.fromMap(response);
-      state = AppAuthState(
-        isLoading: false,
-        user: user,
-        profile: profile,
-        role: profile.role,
-        errorMessage: null,
-      );
-    } catch (e) {
-      debugPrint('Session/profile restore error: $e');
+      // Do not create or upsert a fake profile on a transient read failure.
+      // That was the source of incorrect/default mechanic data on cold start.
       state = state.copyWith(
-        isLoading: false,
         user: user,
-        errorMessage: 'Unable to restore your account. Please try again.',
+        isLoading: false,
+        errorMessage: 'Could not load your profile. Please try again.',
       );
-    }
+    });
   }
 
-  Future<void> fetchUserProfile(String userId) async {
-    final currentUser = supabase.auth.currentUser;
-    if (currentUser == null || currentUser.id != userId) return;
-
+  Future<Map<String, dynamic>?> _loadProfile(String userId) async {
     try {
-      final response = await supabase
+      return await supabase
           .from('profiles')
           .select()
           .eq('id', userId)
           .maybeSingle();
+    } on PostgrestException catch (pe) {
+      if (pe.message.contains('JWT issued at future') ||
+          pe.code == 'PGRST303' ||
+          pe.code == '401') {
+        await Future.delayed(const Duration(seconds: 2));
+        try {
+          return await supabase
+              .from('profiles')
+              .select()
+              .eq('id', userId)
+              .maybeSingle();
+        } catch (_) {}
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  Future<bool> fetchUserProfile(String userId) async {
+    try {
+      final response = await _loadProfile(userId);
+      final currentUser = supabase.auth.currentUser ?? state.user;
 
       if (response == null) {
-        // Do not invent a role or create a profile using the in-memory
-        // targetRole. The database/trigger is the source of truth.
+        // Never manufacture a profile from local/default role data. A missing
+        // profile must be fixed server-side rather than overwriting an
+        // existing mechanic account during startup.
         state = state.copyWith(
-          isLoading: false,
           user: currentUser,
-          profile: null,
-          errorMessage: 'Your account profile could not be found.',
+          isLoading: false,
+          errorMessage: 'Your profile could not be loaded.',
         );
-        return;
+        return false;
       }
 
       final profile = UserProfile.fromMap(response);
-      var fullName = profile.fullName;
-      var phone = profile.phone;
 
-      if ((fullName == 'User' || fullName.trim().isEmpty)) {
-        fullName =
-            currentUser.userMetadata?['full_name'] ??
+      String fullName = profile.fullName;
+      if ((fullName == 'User' || fullName.trim().isEmpty) && currentUser != null) {
+        fullName = currentUser.userMetadata?['full_name'] ??
             currentUser.userMetadata?['name'] ??
             currentUser.email?.split('@').first ??
             'User';
       }
 
-      if (phone.trim().isEmpty) {
-        phone =
-            currentUser.userMetadata?['phone_number'] ??
+      String phone = profile.phone;
+      if (phone.trim().isEmpty && currentUser != null) {
+        phone = currentUser.userMetadata?['phone_number'] ??
             currentUser.phone ??
             '';
       }
@@ -175,7 +168,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         fullName: fullName,
         email: profile.email.isNotEmpty
             ? profile.email
-            : (currentUser.email ?? ''),
+            : (currentUser?.email ?? ''),
         phone: phone,
         role: profile.role,
         avatarUrl: profile.avatarUrl,
@@ -185,20 +178,21 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         isVerified: profile.isVerified,
       );
 
-      state = AppAuthState(
-        isLoading: false,
+      state = state.copyWith(
         user: currentUser,
         profile: enrichedProfile,
         role: enrichedProfile.role,
+        isLoading: false,
         errorMessage: null,
       );
+      return true;
     } catch (e) {
       debugPrint('Fetch user profile error: $e');
       state = state.copyWith(
         isLoading: false,
-        user: currentUser,
-        errorMessage: 'Unable to load your profile. Please try again.',
+        errorMessage: 'Could not load your profile. Please try again.',
       );
+      return false;
     }
   }
 
@@ -208,27 +202,18 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       final userId = state.user?.id ?? 'user';
       final fileBytes = await imageFile.readAsBytes();
       final fileExt = imageFile.name.split('.').last;
-      final fileName =
-          '$userId/${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final fileName = '$userId-${DateTime.now().millisecondsSinceEpoch}.$fileExt';
 
-      await supabase.storage
-          .from('avatars')
-          .uploadBinary(
-            fileName,
-            fileBytes,
-            fileOptions: FileOptions(
-              contentType: 'image/$fileExt',
-              upsert: true,
-            ),
-          );
+      await supabase.storage.from('avatars').uploadBinary(
+        fileName,
+        fileBytes,
+        fileOptions: FileOptions(contentType: 'image/$fileExt', upsert: true),
+      );
 
       final imageUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
 
       if (userId != 'user') {
-        await supabase
-            .from('profiles')
-            .update({'avatar_url': imageUrl})
-            .eq('id', userId);
+        await supabase.from('profiles').update({'avatar_url': imageUrl}).eq('id', userId);
       }
 
       final updatedProfile = UserProfile(
@@ -262,21 +247,11 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     try {
       final userId = state.user?.id;
       if (userId != null) {
-        final currentEmail = state.user?.email?.trim() ?? '';
-        final newEmail = email.trim();
-
-        if (newEmail.isNotEmpty && newEmail != currentEmail) {
-          await supabase.auth.updateUser(UserAttributes(email: newEmail));
-        }
-
-        await supabase
-            .from('profiles')
-            .update({
-              'full_name': fullName.trim(),
-              'phone_number': phone.trim(),
-              'email': newEmail,
-            })
-            .eq('id', userId);
+        await supabase.from('profiles').update({
+          'full_name': fullName.trim(),
+          'phone_number': phone.trim(),
+          'email': email.trim(),
+        }).eq('id', userId);
       }
 
       final updatedProfile = UserProfile(
@@ -295,10 +270,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       state = state.copyWith(isLoading: false, profile: updatedProfile);
       return true;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to update profile',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: 'Failed to update profile');
       return false;
     }
   }
@@ -316,25 +288,14 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       state = state.copyWith(isLoading: false, errorMessage: e.message);
       return false;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Failed to send password reset email.',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: 'Failed to send password reset email.');
       return false;
     }
   }
 
-  Future<bool> loginWithEmail(
-    String email,
-    String password,
-    UserRole targetRole,
-  ) async {
+  Future<bool> loginWithEmail(String email, String password, UserRole targetRole) async {
     setTargetRole(targetRole);
-    state = state.copyWith(
-      isLoading: true,
-      errorMessage: null,
-      role: targetRole,
-    );
+    state = state.copyWith(isLoading: true, errorMessage: null, role: targetRole);
     try {
       final response = await supabase.auth.signInWithPassword(
         email: email.trim(),
@@ -343,11 +304,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
 
       final user = response.user;
       if (user != null) {
-        final profileResponse = await supabase
-            .from('profiles')
-            .select()
-            .eq('id', user.id)
-            .maybeSingle();
+        final profileResponse = await supabase.from('profiles').select().eq('id', user.id).maybeSingle();
 
         if (profileResponse != null) {
           final profile = UserProfile.fromMap(profileResponse);
@@ -355,20 +312,15 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           // STRICT ROLE CHECK ON EMAIL LOGIN:
           if (profile.role != targetRole) {
             await supabase.auth.signOut();
-            final expectedRoleName = profile.role == UserRole.customer
-                ? 'Customer'
-                : 'Mechanic';
-            final attemptedRoleName = targetRole == UserRole.customer
-                ? 'Customer'
-                : 'Mechanic';
+            final expectedRoleName = profile.role == UserRole.customer ? 'Customer' : 'Mechanic';
+            final attemptedRoleName = targetRole == UserRole.customer ? 'Customer' : 'Mechanic';
 
             state = AppAuthState(
               isLoading: false,
               user: null,
               profile: null,
               role: targetRole,
-              errorMessage:
-                  'This account is registered as a $expectedRoleName. You cannot log into the $attemptedRoleName portal.',
+              errorMessage: 'This account is registered as a $expectedRoleName. You cannot log into the $attemptedRoleName portal.',
             );
             return false;
           }
@@ -388,10 +340,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       state = state.copyWith(isLoading: false, errorMessage: e.message);
       return false;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Authentication failed. Please check your credentials.',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: 'Authentication failed. Please check your credentials.');
       return false;
     }
   }
@@ -453,10 +402,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       state = state.copyWith(isLoading: false, errorMessage: e.message);
       return false;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Signup failed. Please try again.',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: 'Signup failed. Please try again.');
       return false;
     }
   }
@@ -465,22 +411,12 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     try {
       Map<String, dynamic>? response;
       try {
-        response = await supabase
-            .from('profiles')
-            .select()
-            .eq('id', user.id)
-            .maybeSingle();
+        response = await supabase.from('profiles').select().eq('id', user.id).maybeSingle();
       } on PostgrestException catch (pe) {
-        if (pe.message.contains('JWT issued at future') ||
-            pe.code == 'PGRST303' ||
-            pe.code == '401') {
+        if (pe.message.contains('JWT issued at future') || pe.code == 'PGRST303' || pe.code == '401') {
           await Future.delayed(const Duration(seconds: 2));
           try {
-            response = await supabase
-                .from('profiles')
-                .select()
-                .eq('id', user.id)
-                .maybeSingle();
+            response = await supabase.from('profiles').select().eq('id', user.id).maybeSingle();
           } catch (_) {}
         }
       } catch (_) {}
@@ -502,25 +438,14 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         if (isNewSocialSignup && profile.role != role) {
           // Brand new social signup! Update role in database
           try {
-            await supabase
-                .from('profiles')
-                .update({'role': role.name})
-                .eq('id', user.id);
+            await supabase.from('profiles').update({'role': role.name}).eq('id', user.id);
           } catch (_) {}
 
           final updatedProfile = UserProfile(
             id: profile.id,
-            fullName: profile.fullName != 'User'
-                ? profile.fullName
-                : (user.userMetadata?['full_name'] ??
-                      user.userMetadata?['name'] ??
-                      'User'),
-            email: profile.email.isNotEmpty
-                ? profile.email
-                : (user.email ?? ''),
-            phone: profile.phone.isNotEmpty
-                ? profile.phone
-                : (user.userMetadata?['phone_number'] ?? ''),
+            fullName: profile.fullName != 'User' ? profile.fullName : (user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? 'User'),
+            email: profile.email.isNotEmpty ? profile.email : (user.email ?? ''),
+            phone: profile.phone.isNotEmpty ? profile.phone : (user.userMetadata?['phone_number'] ?? ''),
             role: role,
             avatarUrl: profile.avatarUrl,
             cnic: profile.cnic,
@@ -529,49 +454,31 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
             isVerified: profile.isVerified,
           );
 
-          state = state.copyWith(
-            isLoading: false,
-            user: user,
-            profile: updatedProfile,
-            role: role,
-          );
+          state = state.copyWith(isLoading: false, user: user, profile: updatedProfile, role: role);
           return true;
         }
 
         if (profile.role != role) {
           // Mismatched role! Immediately sign out unauthorized session
           await supabase.auth.signOut();
-          final expectedRole = profile.role == UserRole.customer
-              ? 'Customer'
-              : 'Mechanic';
-          final attemptedRole = role == UserRole.customer
-              ? 'Customer'
-              : 'Mechanic';
+          final expectedRole = profile.role == UserRole.customer ? 'Customer' : 'Mechanic';
+          final attemptedRole = role == UserRole.customer ? 'Customer' : 'Mechanic';
           state = AppAuthState(
             isLoading: false,
             user: null,
             profile: null,
             role: role,
-            errorMessage:
-                'This account is registered as a $expectedRole. You cannot log into the $attemptedRole portal.',
+            errorMessage: 'This account is registered as a $expectedRole. You cannot log into the $attemptedRole portal.',
           );
           return false;
         }
-        state = state.copyWith(
-          isLoading: false,
-          user: user,
-          profile: profile,
-          role: profile.role,
-        );
+        state = state.copyWith(isLoading: false, user: user, profile: profile, role: profile.role);
         return true;
       } else {
         // Create new social auth profile with role
         final newProfile = UserProfile(
           id: user.id,
-          fullName:
-              user.userMetadata?['full_name'] ??
-              user.userMetadata?['name'] ??
-              'User',
+          fullName: user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? 'User',
           email: user.email ?? '',
           phone: user.userMetadata?['phone_number'] ?? '',
           role: role,
@@ -584,12 +491,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           'role': role.name,
         });
 
-        state = state.copyWith(
-          isLoading: false,
-          user: user,
-          profile: newProfile,
-          role: role,
-        );
+        state = state.copyWith(isLoading: false, user: user, profile: newProfile, role: role);
         return true;
       }
     } catch (e) {
@@ -643,24 +545,21 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         return true;
       }
 
-      await supabase.auth.signInWithOAuth(OAuthProvider.google);
+      await supabase.auth.signInWithOAuth(
+        OAuthProvider.google,
+      );
       state = state.copyWith(isLoading: false);
       return true;
     } on AuthException catch (e) {
       String msg = e.message;
-      if (msg.contains('missing OAuth secret') ||
-          msg.contains('Unsupported provider')) {
-        msg =
-            'Google Sign-In is disabled in Supabase. Please configure Google Client ID & Secret in Supabase Dashboard -> Authentication -> Providers -> Google.';
+      if (msg.contains('missing OAuth secret') || msg.contains('Unsupported provider')) {
+        msg = 'Google Sign-In is disabled in Supabase. Please configure Google Client ID & Secret in Supabase Dashboard -> Authentication -> Providers -> Google.';
       }
       state = state.copyWith(isLoading: false, errorMessage: msg);
       return false;
     } catch (e) {
       debugPrint('Google Sign-In error: $e');
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Google sign-in failed.',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: 'Google sign-in failed.');
       return false;
     }
   }
@@ -676,26 +575,15 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       return true;
     } on AuthException catch (e) {
       String msg = e.message;
-      if (msg.contains('missing OAuth secret') ||
-          msg.contains('Unsupported provider')) {
-        msg =
-            'Facebook Sign-In is disabled in Supabase. Please add Facebook Client ID & Secret in Supabase Dashboard -> Authentication -> Providers -> Facebook.';
+      if (msg.contains('missing OAuth secret') || msg.contains('Unsupported provider')) {
+        msg = 'Facebook Sign-In is disabled in Supabase. Please add Facebook Client ID & Secret in Supabase Dashboard -> Authentication -> Providers -> Facebook.';
       }
       state = state.copyWith(isLoading: false, errorMessage: msg);
       return false;
     } catch (e) {
-      state = state.copyWith(
-        isLoading: false,
-        errorMessage: 'Facebook sign-in failed.',
-      );
+      state = state.copyWith(isLoading: false, errorMessage: 'Facebook sign-in failed.');
       return false;
     }
-  }
-
-  @override
-  void dispose() {
-    _authSubscription?.cancel();
-    super.dispose();
   }
 
   Future<void> logout() async {
@@ -719,11 +607,7 @@ final currentUserProfileProvider = Provider<UserProfile>((ref) {
   }
   final user = authState.user;
   if (user != null) {
-    final metaName =
-        user.userMetadata?['full_name'] ??
-        user.userMetadata?['name'] ??
-        user.email?.split('@').first ??
-        'User';
+    final metaName = user.userMetadata?['full_name'] ?? user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'User';
     final metaPhone = user.userMetadata?['phone_number'] ?? user.phone ?? '';
     return UserProfile(
       id: user.id,

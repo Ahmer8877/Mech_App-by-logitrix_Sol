@@ -57,9 +57,9 @@ class LiveLocationRepository {
         .eq('booking_id', bookingId)
         .map(
           (rows) => rows.isEmpty
-              ? null
-              : LiveLocation.fromMap(Map<String, dynamic>.from(rows.first)),
-        );
+          ? null
+          : LiveLocation.fromMap(Map<String, dynamic>.from(rows.first)),
+    );
   }
 
   Stream<LiveLocation?> watchMechanicLocation(String bookingId) =>
@@ -71,8 +71,9 @@ class LiveLocationRepository {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever)
+        permission == LocationPermission.deniedForever) {
       return null;
+    }
     if (!await Geolocator.isLocationServiceEnabled()) return null;
     return Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
@@ -87,8 +88,8 @@ class LiveLocationRepository {
     final existing = await client
         .from('booking_locations')
         .select(
-          'customer_id,customer_latitude,customer_longitude,customer_accuracy,customer_heading',
-        )
+      'customer_id,customer_latitude,customer_longitude,customer_accuracy,customer_heading',
+    )
         .eq('booking_id', bookingId)
         .maybeSingle();
 
@@ -141,8 +142,8 @@ class LiveLocationRepository {
     final row = await client
         .from('booking_locations')
         .select(
-          'customer_id,customer_latitude,customer_longitude,customer_accuracy,customer_heading',
-        )
+      'customer_id,customer_latitude,customer_longitude,customer_accuracy,customer_heading',
+    )
         .eq('booking_id', bookingId)
         .maybeSingle();
     if (row == null) return;
@@ -150,14 +151,14 @@ class LiveLocationRepository {
       await client
           .from('booking_locations')
           .update({
-            'mechanic_id': null,
-            'latitude': null,
-            'longitude': null,
-            'accuracy': null,
-            'heading': 0,
-            'speed': null,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          })
+        'mechanic_id': null,
+        'latitude': null,
+        'longitude': null,
+        'accuracy': null,
+        'heading': 0,
+        'speed': null,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+      })
           .eq('booking_id', bookingId);
     } else {
       await client

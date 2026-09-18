@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/config/supabase_config.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/bookings_provider.dart';
+import '../../cores/providers/mechanic_stats_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import 'customer_home_screen.dart';
@@ -18,6 +19,7 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
   int rating = 5;
   final comment = TextEditingController();
   bool saving = false;
+
   @override
   void dispose() {
     comment.dispose();
@@ -39,12 +41,20 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
         'rating': rating,
         'comment': comment.text.trim(),
       }, onConflict: 'booking_id,customer_id');
+
       ref.invalidate(bookingsProvider);
+      ref.invalidate(mechanicStatsProvider);
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
           (_) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit review: $e')),
         );
       }
     } finally {
@@ -67,7 +77,9 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
               Text(
                 (x?['mechanic'] as Map?)?['full_name']?.toString() ??
                     'Mechanic',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
+              const SizedBox(height: 14),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(
@@ -77,10 +89,12 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
                     icon: Icon(
                       i < rating ? Icons.star : Icons.star_border,
                       color: context.colors.accent,
+                      size: 32,
                     ),
                   ),
                 ),
               ),
+              const SizedBox(height: 14),
               TextField(
                 controller: comment,
                 maxLines: 3,

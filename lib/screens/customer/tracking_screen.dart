@@ -26,15 +26,53 @@ class TrackingScreen extends ConsumerStatefulWidget {
 
 class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   StreamSubscription<Position>? _positionSubscription;
+  StreamSubscription<ServiceStatus>? _serviceStatusSubscription;
   bool _locationStarted = false;
+  bool _locationServiceOff = false;
+  bool _locationPermissionDenied = false;
+  bool _locationPermissionDeniedForever = false;
 
   Future<void> _startCustomerTracking() async {
     if (_locationStarted) return;
-    _locationStarted = true;
     final customerId = ref.read(authProvider).user?.id;
     if (customerId == null) return;
-    final permission = await _ensureLocationPermission();
-    if (!permission) return;
+
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      if (mounted) {
+        setState(() {
+          _locationServiceOff = true;
+          _locationPermissionDenied = false;
+        });
+      }
+      return;
+    }
+
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      if (mounted) {
+        setState(() {
+          _locationServiceOff = false;
+          _locationPermissionDenied = permission == LocationPermission.denied;
+          _locationPermissionDeniedForever =
+              permission == LocationPermission.deniedForever;
+        });
+      }
+      return;
+    }
+
+    _locationStarted = true;
+    if (mounted) {
+      setState(() {
+        _locationServiceOff = false;
+        _locationPermissionDenied = false;
+        _locationPermissionDeniedForever = false;
+      });
+    }
+
     final repo = ref.read(liveLocationRepositoryProvider);
     try {
       final first = await Geolocator.getCurrentPosition(
@@ -45,32 +83,55 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
         customerId: customerId,
         position: first,
       );
-      _positionSubscription =
-          Geolocator.getPositionStream(
-            locationSettings: const LocationSettings(
-              accuracy: LocationAccuracy.high,
-              distanceFilter: 10,
-            ),
-          ).listen((position) async {
-            try {
-              await repo.updateCustomerLocation(
-                bookingId: widget.bookingId,
-                customerId: customerId,
-                position: position,
-              );
-            } catch (_) {}
-          });
-    } catch (_) {}
+      await _positionSubscription?.cancel();
+      _positionSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
+      ).listen((position) async {
+        try {
+          await repo.updateCustomerLocation(
+            bookingId: widget.bookingId,
+            customerId: customerId,
+            position: position,
+          );
+        } catch (_) {}
+      });
+    } catch (e) {
+      _locationStarted = false;
+      if (mounted) {
+        setState(() => _locationServiceOff = true);
+      }
+    }
   }
 
-  Future<bool> _ensureLocationPermission() async {
-    if (!await Geolocator.isLocationServiceEnabled()) return false;
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
+  Future<void> _openLocationSettings() async {
+    if (_locationPermissionDeniedForever) {
+      await Geolocator.openAppSettings();
+    } else {
+      await Geolocator.openLocationSettings();
     }
-    return permission != LocationPermission.denied &&
-        permission != LocationPermission.deniedForever;
+    await Future.delayed(const Duration(milliseconds: 500));
+    if (mounted) await _startCustomerTracking();
+  }
+
+  void _watchLocationService() {
+    _serviceStatusSubscription?.cancel();
+    _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen((status) {
+      if (!mounted) return;
+      if (status == ServiceStatus.enabled) {
+        _locationStarted = false;
+        _startCustomerTracking();
+      } else {
+        setState(() {
+          _locationStarted = false;
+          _locationServiceOff = true;
+        });
+        _positionSubscription?.cancel();
+        _positionSubscription = null;
+      }
+    });
   }
 
   Future<void> _cancel(BuildContext context, WidgetRef ref) async {
@@ -83,7 +144,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
-          (_) => false,
+              (_) => false,
         );
       }
     } catch (e) {
@@ -96,8 +157,15 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _watchLocationService();
+  }
+
+  @override
   void dispose() {
     _positionSubscription?.cancel();
+    _serviceStatusSubscription?.cancel();
     super.dispose();
   }
 
@@ -132,7 +200,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
               status == 'on_the_way' ||
               status == 'in_progress') {
             WidgetsBinding.instance.addPostFrameCallback(
-              (_) => _startCustomerTracking(),
+                  (_) => _startCustomerTracking(),
             );
           }
           final service = data['service_title']?.toString() ?? 'Service';
@@ -159,6 +227,36 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                     mechanicLocation: mechanicLocation,
                   ),
                 ),
+                if (_locationServiceOff ||
+                    _locationPermissionDenied ||
+                    _locationPermissionDeniedForever)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 10),
+                    child: AppCard(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_off_outlined),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              _locationPermissionDeniedForever
+                                  ? 'Location permission is permanently denied. Enable it in app settings.'
+                                  : _locationPermissionDenied
+                                  ? 'Location permission is required to share your live location.'
+                                  : 'GPS is turned off. Turn on Location to show your live position.',
+                              style: const TextStyle(fontSize: 11),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _openLocationSettings,
+                            child: Text(
+                              _locationPermissionDeniedForever ? 'Settings' : 'Turn On',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 AppCard(
                   child: Row(
                     children: [
@@ -208,14 +306,14 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                         onPressed: mechanicId.isEmpty
                             ? null
                             : () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => CallScreen(
-                                    name: name,
-                                    initials: initials,
-                                  ),
-                                ),
-                              ),
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CallScreen(
+                              name: name,
+                              initials: initials,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -225,15 +323,15 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                         onPressed: mechanicId.isEmpty
                             ? null
                             : () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    bookingId: widget.bookingId,
-                                    otherUserId: mechanicId,
-                                    otherName: name,
-                                  ),
-                                ),
-                              ),
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ChatScreen(
+                              bookingId: widget.bookingId,
+                              otherUserId: mechanicId,
+                              otherName: name,
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ],

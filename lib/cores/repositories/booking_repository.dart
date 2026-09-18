@@ -9,8 +9,8 @@ class BookingRepository {
     final rows = await client
         .from('bookings')
         .select(
-          '*, mechanic:profiles!bookings_mechanic_id_fkey(full_name,rating), service:services(title)',
-        )
+      '*, mechanic:profiles!bookings_mechanic_id_fkey(id,full_name,rating,phone_number), service:services(title)',
+    )
         .eq('customer_id', userId)
         .order('created_at', ascending: false);
     return (rows as List)
@@ -22,8 +22,8 @@ class BookingRepository {
     final rows = await client
         .from('bookings')
         .select(
-          '*, customer:profiles!bookings_customer_id_fkey(full_name,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',
-        )
+      '*, customer:profiles!bookings_customer_id_fkey(id,full_name,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',
+    )
         .eq('mechanic_id', userId)
         .order('created_at', ascending: false);
     return (rows as List)
@@ -35,8 +35,8 @@ class BookingRepository {
     final rows = await client
         .from('bookings')
         .select(
-          '*, customer:profiles!bookings_customer_id_fkey(full_name,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',
-        )
+      '*, customer:profiles!bookings_customer_id_fkey(id,full_name,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',
+    )
         .isFilter('mechanic_id', null)
         .eq('status', 'pending')
         .order('created_at', ascending: false);
@@ -46,10 +46,10 @@ class BookingRepository {
   Future<Map<String, dynamic>?> getRawBooking(String id) async => await client
       .from('bookings')
       .select(
-        '*, customer:profiles!bookings_customer_id_fkey(full_name,phone_number), mechanic:profiles!bookings_mechanic_id_fkey(id,full_name,rating,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',
-      )
+    '*, customer:profiles!bookings_customer_id_fkey(id,full_name,phone_number), mechanic:profiles!bookings_mechanic_id_fkey(id,full_name,rating,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',      )
       .eq('id', id)
       .maybeSingle();
+
   Future<String> createBooking({
     required String customerId,
     required String vehicleId,
@@ -58,39 +58,60 @@ class BookingRepository {
     required String description,
     required List<String> photoUrls,
     required String address,
-    required double budget,
-    required String paymentMethod,
     double? latitude,
     double? longitude,
+    double? budget,
+    String? paymentMethod,
   }) async {
-    final row = await client
+    final res = await client
         .from('bookings')
         .insert({
-          'customer_id': customerId,
-          'vehicle_id': vehicleId,
-          'service_id': serviceId,
-          'service_title': serviceTitle,
-          'description': description,
-          'photo_urls': photoUrls,
-          'pickup_address': address,
-          if (latitude != null) 'latitude': latitude,
-          if (longitude != null) 'longitude': longitude,
-          'status': 'pending',
-          'budget_price': budget,
-          'payment_method': paymentMethod,
-        })
+      'customer_id': customerId,
+      'vehicle_id': vehicleId,
+      'service_id': serviceId,
+      'service_title': serviceTitle,
+      'description': description,
+      'photo_urls': photoUrls,
+      'pickup_address': address,
+      'latitude': latitude,
+      'longitude': longitude,
+      'status': 'pending',
+      'budget_price': budget ?? 0,
+      'payment_method': paymentMethod ?? 'Cash',
+    })
         .select('id')
         .single();
-    return row['id'].toString();
+    return res['id'].toString();
   }
 
-  Future<void> updateStatus(String bookingId, String status) async =>
-      client.from('bookings').update({'status': status}).eq('id', bookingId);
-  Future<void> cancel(String bookingId) => updateStatus(bookingId, 'cancelled');
-  Future<void> complete(String bookingId) =>
-      updateStatus(bookingId, 'completed');
-  Future<void> markPaid(String bookingId, String method) async => client
-      .from('bookings')
-      .update({'is_paid': true, 'payment_method': method})
-      .eq('id', bookingId);
+  Future<void> markPaid(String bookingId, String method) async {
+    await client.from('bookings').update({
+      'is_paid': true,
+      'payment_method': method,
+      'status': 'completed',
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', bookingId);
+  }
+
+  Future<void> updateStatus(String bookingId, String status) async {
+    await client.from('bookings').update({
+      'status': status,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', bookingId);
+  }
+
+  Future<void> complete(String bookingId) async {
+    await client.from('bookings').update({
+      'status': 'completed',
+      'is_paid': true,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', bookingId);
+  }
+
+  Future<void> cancel(String bookingId) async {
+    await client.from('bookings').update({
+      'status': 'cancelled',
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', bookingId);
+  }
 }

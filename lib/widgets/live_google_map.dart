@@ -28,8 +28,6 @@ class LiveGoogleMap extends StatefulWidget {
 
 class _LiveGoogleMapState extends State<LiveGoogleMap> {
   GoogleMapController? _controller;
-  LatLng? _lastAnimatedMechanic;
-  bool _hasFittedInitialMarkers = false;
   List<LatLng> _routePoints = const [];
   bool _routeLoading = false;
   String? _routeError;
@@ -54,10 +52,6 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
 
     if (mechanic != null) {
       _refreshRoadRoute(force: true);
-    }
-
-    if (mechanic != null) {
-      _lastAnimatedMechanic = mechanic;
     }
 
     // When GPS becomes available after the map has already been created,
@@ -108,10 +102,10 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
     final dLon = (lon2 - lon1) * 3.141592653589793 / 180;
     final a =
         (math.sin(dLat / 2) * math.sin(dLat / 2)) +
-        math.cos(lat1 * 3.141592653589793 / 180) *
-            math.cos(lat2 * 3.141592653589793 / 180) *
-            math.sin(dLon / 2) *
-            math.sin(dLon / 2);
+            math.cos(lat1 * 3.141592653589793 / 180) *
+                math.cos(lat2 * 3.141592653589793 / 180) *
+                math.sin(dLon / 2) *
+                math.sin(dLon / 2);
     return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
@@ -144,11 +138,11 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
     try {
       final result = await RoutesRepository(Supabase.instance.client)
           .getDrivingRoute(
-            originLatitude: mechanic.latitude,
-            originLongitude: mechanic.longitude,
-            destinationLatitude: customer.latitude,
-            destinationLongitude: customer.longitude,
-          );
+        originLatitude: mechanic.latitude,
+        originLongitude: mechanic.longitude,
+        destinationLatitude: customer.latitude,
+        destinationLongitude: customer.longitude,
+      );
       if (!mounted) return;
       if (result != null && result.points.length >= 2) {
         setState(() {
@@ -163,7 +157,7 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
         });
       } else if (mounted) {
         setState(
-          () => _routeError = 'Road route unavailable. Check Routes API setup.',
+              () => _routeError = 'Road route unavailable. Check Routes API setup.',
         );
       }
     } catch (e) {
@@ -271,7 +265,6 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
             onMapCreated: (controller) {
               _controller = controller;
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                _hasFittedInitialMarkers = true;
                 _fitMarkers();
                 _refreshRoadRoute(force: true);
               });
