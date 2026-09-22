@@ -1,99 +1,62 @@
-# MechX — Flutter Source
+# 🚗 MechX — On-Demand Mechanic Marketplace
 
-MechX is a Flutter customer/mechanic marketplace app using Riverpod for shared state and Supabase for authentication and application data. The UI follows the MechX design system (cards, service tiles, booking flow, mechanic flow, and dark mode).
+MechX is a professional, high-performance Flutter application that connects stranded drivers with expert mechanics in real-time. Built with a focus on speed, reliability, and security, it leverages **Supabase** for its backend and **Riverpod** for state management to provide a seamless marketplace experience.
 
-## Run it
+## ✨ Key Features
 
-1. Copy this folder's contents into a fresh `flutter create mechx` project
-   (or use it as-is if you already have a Flutter project — just merge `lib/`
-   and `pubspec.yaml`).
-2. `flutter pub get`
-3. `flutter run`
+### 🧑 For Customers
+* **Emergency Booking Flow:** 5-step intuitive process: Select Vehicle ➔ Select Service ➔ Describe Issue ➔ Set Location ➔ Receive Bids.
+* **Real-Time Bidding:** Receive instant price offers from multiple nearby mechanics.
+* **Live GPS Tracking:** Watch your mechanic arrive on a live map with animated routes.
+* **Secure Payments:** Multiple payment methods including Cash, Card, and local Mobile Wallets.
+* **Service History:** Keep track of past bookings, costs, and reviews.
 
-Maps currently use `MapPlaceholder` so the app can run without a Maps API key. Replace it with `GoogleMap(...)` when you are ready to configure Google Maps.
+### 🔧 For Mechanics
+* **Live Request Feed:** Real-time stream of incoming service requests in your vicinity.
+* **Bid Management:** Send competitive price offers and estimated arrival times.
+* **Seamless Navigation:** In-app GPS tracking of customer location to ensure fast arrival.
+* **Performance Analytics:** Persistent dashboard showing total earnings, completed jobs, and live star ratings.
+* **Integrated Communication:** Direct calling and real-time chat with customers during active jobs.
 
-## Structure
+## 🛠️ Tech Stack & Architecture
+* **Frontend:** Flutter (Dart)
+* **State Management:** Riverpod 2.x (using Generators and AsyncNotifiers)
+* **Backend & Auth:** Supabase (PostgreSQL, Realtime, Storage, and Edge Functions)
+* **Maps:** Google Maps SDK with high-accuracy GPS tracking
+* **Security:** Row-Level Security (RLS) policies enforcing role isolation and data privacy.
 
+## 📂 Project Structure
 ```
 lib/
   cores/
-    config/
-    models/
-    providers/
-    repositories/
-    theme/
-    app_colors.dart      → raw color tokens (same hex values as the HTML kit)
-    app_theme.dart        → ThemeData (light/dark) + AppColorsExt for extra
-                             semantic colors (surface2, textMuted, accent...)
-                             Access via: context.colors.textMuted
-  widgets/
-    app_buttons.dart      → AccentButton, PrimaryButton, OutlineActionButton,
-                             SmallAccentButton
-    app_atoms.dart        → AppCard, ServiceTile, OfferRow, StatMini,
-                             AppFieldBox, MapPlaceholder, MapPin
-    gauge_arc.dart         → the signature speedometer-arc widget
-    step_progress.dart    → StepProgress (booking-flow stepper), FlowAppBar
-  screens/
-    splash_screen.dart
-    role_select_screen.dart
-    login_screen.dart
-    customer/
-      customer_home_screen.dart
-      select_vehicle_screen.dart      (step 1)
-      select_service_screen.dart      (step 2)
-      issue_details_screen.dart       (step 3)
-      set_location_screen.dart        (step 4)
-      offers_screen.dart              (step 5 — the bidding screen)
-      tracking_screen.dart            (step 6)
-      payment_rating_screen.dart      (step 7 — combined pay + rate, end of main flow)
-      chat_screen.dart                (customer ↔ mechanic messaging)
-      booking_history_screen.dart     (Upcoming / Completed tabs)
-      payment_method_screen.dart      (standalone payment picker)
-      rate_mechanic_screen.dart       (standalone rating screen)
-    mechanic/
-      mechanic_home_screen.dart
-      new_request_screen.dart
-      send_offer_screen.dart
-      job_accepted_screen.dart
-      on_the_way_screen.dart
-      job_completed_screen.dart
-      earnings_screen.dart            (full earnings history page)
-  main.dart                → MaterialApp + Riverpod ProviderScope
+    models/       → Strongly-typed data schemas (User, Booking, Offer, etc.)
+    providers/    → Riverpod state logic & Real-time Supabase streams
+    repositories/ → Clean data access layers for Auth, Bookings, and Location
+    theme/        → Semantic Teal & Amber design system (Dark/Light mode)
+  widgets/        → Reusable UI components (Custom Buttons, Atomic Cards, Gauges)
+  screens/        → Feature-specific portals for Customers and Mechanics
 ```
 
-## Navigation map
+## 🚀 Getting Started
 
-**Customer:** Splash → Role Select → Login → Home →
-[Select Vehicle → Select Service → Issue Details → Set Location → Offers →
-Tracking → Payment & Rating] → back to Home.
-From Home's bottom nav: Bookings → Booking History (tap an upcoming item →
-Payment Method → Rate Mechanic). Chat tab / Tracking screen's Chat button →
-Chat screen.
+### 1. Requirements
+* Flutter SDK (`^3.12.2` or later)
+* A Supabase Project with the schema in `supabase_schema.sql` applied.
+* A valid Google Maps API Key.
 
-**Mechanic:** Login → Mechanic Home → New Request → Send Offer →
-Job Accepted → On The Way → Job Completed → back to Mechanic Home.
-Tapping the earnings card on Mechanic Home → full Earnings screen.
+### 2. Configuration
+Create a `.env` file in the root directory:
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+GOOGLE_WEB_CLIENT_ID=your-google-client-id
+```
 
-## Adding a new screen
+### 3. Installation
+```bash
+flutter pub get
+flutter run
+```
 
-Follow the pattern of any existing screen: wrap in `Scaffold`, use
-`FlowAppBar` for booking-flow screens, pull colors from
-`context.colors.xxx` (never hardcode hex — keeps light/dark consistent),
-and reuse the widgets in `widgets/` before writing new ones.
-
-## Screens not yet converted
-
-All screens from the HTML kit are now ported **except** the Admin Dashboard —
-that one is a web panel (React or Flutter Web target), not part of this
-mobile app codebase. Ask when you're ready to start that separately.
-
-## Environment
-
-Create a `.env` file in the project root using `.env.example` as a template. Never commit `.env` or service credentials.
-
-## Supabase
-
-Run `supabase_schema.sql` in the Supabase SQL Editor before testing the data-backed screens. The schema contains RLS policies for profiles, vehicles, bookings, offers, chat, reviews, notifications, and avatar storage.
-
-## Live Supabase update
-The latest build removes fixed demo records from booking requests, offers, mechanic requests, tracking details, chat, earnings and payment totals. Run the complete `supabase_schema.sql` again in Supabase SQL Editor before testing this flow.
+---
+*Note: Real-time features require enabling Replication on the `bookings`, `offers`, `chat_messages`, and `booking_locations` tables within your Supabase dashboard.*
