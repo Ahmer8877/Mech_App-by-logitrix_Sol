@@ -49,7 +49,7 @@ class _MyVehiclesScreenState extends ConsumerState<MyVehiclesScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('Vehicles load nahi ho sakin.'),
+                          const Text('Failed to load vehicles.'),
                           TextButton(
                             onPressed: () => ref.invalidate(vehiclesProvider),
                             child: const Text('Retry'),

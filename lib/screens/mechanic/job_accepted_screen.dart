@@ -22,7 +22,8 @@ class JobAcceptedScreen extends ConsumerWidget {
           data: (b) {
             final customer = b?['customer'] as Map?;
             final name = customer?['full_name']?.toString() ?? 'Customer';
-            final customerId = (customer?['id'] ?? b?['customer_id'])?.toString() ?? '';
+            final customerId =
+                (customer?['id'] ?? b?['customer_id'])?.toString() ?? '';
             final initials = name
                 .split(' ')
                 .where((x) => x.isNotEmpty)
@@ -53,11 +54,14 @@ class JobAcceptedScreen extends ConsumerWidget {
                           onPressed: customerId.isEmpty
                               ? null
                               : () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => CallScreen(name: name, initials: initials),
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => CallScreen(
+                                      name: name,
+                                      initials: initials,
                                     ),
                                   ),
+                                ),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -67,15 +71,15 @@ class JobAcceptedScreen extends ConsumerWidget {
                           onPressed: customerId.isEmpty
                               ? null
                               : () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ChatScreen(
-                                        bookingId: bookingId,
-                                        otherUserId: customerId,
-                                        otherName: name,
-                                      ),
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ChatScreen(
+                                      bookingId: bookingId,
+                                      otherUserId: customerId,
+                                      otherName: name,
                                     ),
                                   ),
+                                ),
                         ),
                       ),
                     ],

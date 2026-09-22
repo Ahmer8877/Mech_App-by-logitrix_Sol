@@ -30,7 +30,6 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
   GoogleMapController? _controller;
   List<LatLng> _routePoints = const [];
   bool _routeLoading = false;
-  String? _routeError;
   double? _lastRouteLat;
   double? _lastRouteLng;
   double? _lastDestinationLat;
@@ -54,17 +53,16 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
       _refreshRoadRoute(force: true);
     }
 
-    // When GPS becomes available after the map has already been created,
-    // move the camera to the real location instead of staying on Lahore fallback.
+    // When GPS becomes available, move the camera to the real location smoothly
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _controller == null) return;
       if (widget.customerLocation != null && mechanic != null) {
         _fitMarkers();
       } else if (mechanic != null) {
-        _controller!.animateCamera(CameraUpdate.newLatLng(mechanic));
+        _controller!.animateCamera(CameraUpdate.newLatLngZoom(mechanic, 15));
       } else if (widget.customerLocation != null) {
         _controller!.animateCamera(
-          CameraUpdate.newLatLng(widget.customerLocation!),
+          CameraUpdate.newLatLngZoom(widget.customerLocation!, 15),
         );
       }
     });
@@ -72,10 +70,6 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
 
   LatLng? _mechanicLatLng(LiveLocation? location) {
     if (location == null || !location.hasMechanicLocation) return null;
-
-    // LiveLocation coordinates are nullable because the database row may
-    // exist before the mechanic sends the first GPS update. The guard above
-    // proves both values are available, so the non-null assertions are safe.
     return LatLng(location.latitude!, location.longitude!);
   }
 
@@ -91,7 +85,8 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
         polylineId: const PolylineId('live_route'),
         points: points,
         width: 6,
-        geodesic: false,
+        color: const Color(0xFF0E4747), // Visible Teal Accent Line
+        geodesic: true,
       ),
     };
   }
@@ -102,10 +97,10 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
     final dLon = (lon2 - lon1) * 3.141592653589793 / 180;
     final a =
         (math.sin(dLat / 2) * math.sin(dLat / 2)) +
-            math.cos(lat1 * 3.141592653589793 / 180) *
-                math.cos(lat2 * 3.141592653589793 / 180) *
-                math.sin(dLon / 2) *
-                math.sin(dLon / 2);
+        math.cos(lat1 * 3.141592653589793 / 180) *
+            math.cos(lat2 * 3.141592653589793 / 180) *
+            math.sin(dLon / 2) *
+            math.sin(dLon / 2);
     return 2 * r * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
@@ -138,15 +133,14 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
     try {
       final result = await RoutesRepository(Supabase.instance.client)
           .getDrivingRoute(
-        originLatitude: mechanic.latitude,
-        originLongitude: mechanic.longitude,
-        destinationLatitude: customer.latitude,
-        destinationLongitude: customer.longitude,
-      );
+            originLatitude: mechanic.latitude,
+            originLongitude: mechanic.longitude,
+            destinationLatitude: customer.latitude,
+            destinationLongitude: customer.longitude,
+          );
       if (!mounted) return;
       if (result != null && result.points.length >= 2) {
         setState(() {
-          _routeError = null;
           _routePoints = result.points
               .map((p) => LatLng(p.latitude, p.longitude))
               .toList(growable: false);
@@ -155,14 +149,8 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
           _lastDestinationLat = customer.latitude;
           _lastDestinationLng = customer.longitude;
         });
-      } else if (mounted) {
-        setState(
-              () => _routeError = 'Road route unavailable. Check Routes API setup.',
-        );
       }
-    } catch (e) {
-      if (mounted) setState(() => _routeError = 'Road route error: $e');
-      // Keep the straight-line fallback when the Routes API is unavailable.
+    } catch (_) {
     } finally {
       _routeLoading = false;
     }
@@ -176,7 +164,7 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
         Marker(
           markerId: const MarkerId('customer_pickup'),
           position: widget.customerLocation!,
-          infoWindow: const InfoWindow(title: 'Pickup location'),
+          infoWindow: const InfoWindow(title: 'Customer Pickup Location'),
           icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       );
@@ -188,7 +176,7 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
         Marker(
           markerId: const MarkerId('mechanic_live'),
           position: mechanic,
-          infoWindow: const InfoWindow(title: 'Mechanic'),
+          infoWindow: const InfoWindow(title: 'Mechanic Live Location'),
           icon: BitmapDescriptor.defaultMarkerWithHue(
             BitmapDescriptor.hueAzure,
           ),
@@ -202,7 +190,7 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
 
   LatLng _initialTarget() {
     final mechanic = _mechanicLatLng(widget.mechanicLocation);
-    return widget.customerLocation ?? mechanic ?? _fallback;
+    return mechanic ?? widget.customerLocation ?? _fallback;
   }
 
   void _fitMarkers() {
@@ -213,7 +201,7 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
 
     if (points.length < 2) {
       if (points.length == 1) {
-        _controller?.animateCamera(CameraUpdate.newLatLng(points.first));
+        _controller?.animateCamera(CameraUpdate.newLatLngZoom(points.first, 15));
       }
       return;
     }
@@ -224,19 +212,29 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
     var maxLng = points.first.longitude;
 
     for (final point in points.skip(1)) {
-      minLat = minLat < point.latitude ? minLat : point.latitude;
-      maxLat = maxLat > point.latitude ? maxLat : point.latitude;
-      minLng = minLng < point.longitude ? minLng : point.longitude;
-      maxLng = maxLng > point.longitude ? maxLng : point.longitude;
+      minLat = math.min(minLat, point.latitude);
+      maxLat = math.max(maxLat, point.latitude);
+      minLng = math.min(minLng, point.longitude);
+      maxLng = math.max(maxLng, point.longitude);
+    }
+
+    // Guard against continent-spanning distances on emulators
+    final latDelta = (maxLat - minLat).abs();
+    final lngDelta = (maxLng - minLng).abs();
+    if (latDelta > 5.0 || lngDelta > 5.0) {
+      _controller?.animateCamera(
+        CameraUpdate.newLatLngZoom(mechanic ?? widget.customerLocation!, 14),
+      );
+      return;
     }
 
     _controller?.animateCamera(
       CameraUpdate.newLatLngBounds(
         LatLngBounds(
-          southwest: LatLng(minLat, minLng),
-          northeast: LatLng(maxLat, maxLng),
+          southwest: LatLng(minLat - 0.005, minLng - 0.005),
+          northeast: LatLng(maxLat + 0.005, maxLng + 0.005),
         ),
-        70,
+        60,
       ),
     );
   }
@@ -284,40 +282,6 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.colors.textMuted),
                     ),
-                  ),
-                ),
-              ),
-            ),
-          if (_routeError != null &&
-              widget.customerLocation != null &&
-              widget.mechanicLocation != null)
-            Positioned(
-              left: 12,
-              right: 12,
-              bottom: 12,
-              child: Material(
-                elevation: 2,
-                borderRadius: BorderRadius.circular(10),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 8,
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          _routeError!,
-                          style: const TextStyle(fontSize: 11),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: _routeLoading
-                            ? null
-                            : () => _refreshRoadRoute(force: true),
-                        child: const Text('Retry'),
-                      ),
-                    ],
                   ),
                 ),
               ),

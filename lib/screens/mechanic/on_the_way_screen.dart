@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/bookings_provider.dart';
+import '../../cores/providers/chat_provider.dart';
 import '../../cores/providers/live_location_provider.dart';
 import '../../cores/repositories/live_location_repository.dart';
 import '../../cores/theme/app_theme.dart';
@@ -13,6 +14,7 @@ import '../../widgets/live_google_map.dart';
 import '../call/call_screen.dart';
 import '../customer/chat_screen.dart';
 import 'job_completed_screen.dart';
+import 'mechanic_home_screen.dart';
 
 class OnTheWayScreen extends ConsumerStatefulWidget {
   final String bookingId;
@@ -23,7 +25,8 @@ class OnTheWayScreen extends ConsumerStatefulWidget {
   ConsumerState<OnTheWayScreen> createState() => _OnTheWayScreenState();
 }
 
-class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
+class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
+    with WidgetsBindingObserver {
   StreamSubscription<Position>? _positionSubscription;
   StreamSubscription<ServiceStatus>? _serviceStatusSubscription;
   LiveLocation? _myLocation;
@@ -36,8 +39,24 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _watchLocationService();
     _startLocationTracking();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _positionSubscription?.cancel();
+    _serviceStatusSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _startLocationTracking();
+    }
   }
 
   Future<void> _startLocationTracking() async {
@@ -88,7 +107,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
     }
 
     try {
-      // The moment the mechanic starts navigation, mark the job as on the way.
+      // Mark job status as on_the_way when mechanic starts tracking
       await ref
           .read(bookingRepositoryProvider)
           .updateStatus(widget.bookingId, 'on_the_way');
@@ -105,25 +124,26 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
       _setMyLocation(mechanicId, firstPosition);
 
       await _positionSubscription?.cancel();
-      _positionSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10,
-        ),
-      ).listen((position) async {
-        try {
-          await repository.updateMechanicLocation(
-            bookingId: widget.bookingId,
-            mechanicId: mechanicId,
-            position: position,
-          );
-          _setMyLocation(mechanicId, position);
-        } catch (e) {
-          if (mounted) {
-            setState(() => _locationError = 'GPS update failed: $e');
-          }
-        }
-      });
+      _positionSubscription =
+          Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              distanceFilter: 10,
+            ),
+          ).listen((position) async {
+            try {
+              await repository.updateMechanicLocation(
+                bookingId: widget.bookingId,
+                mechanicId: mechanicId,
+                position: position,
+              );
+              _setMyLocation(mechanicId, position);
+            } catch (e) {
+              if (mounted) {
+                setState(() => _locationError = 'GPS update failed: $e');
+              }
+            }
+          });
     } catch (e) {
       if (mounted) {
         setState(() => _locationError = 'Unable to start live location: $e');
@@ -139,13 +159,23 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
     } else {
       await Geolocator.openLocationSettings();
     }
-    await Future.delayed(const Duration(milliseconds: 500));
-    if (mounted) await _startLocationTracking();
+
+    // Seamless GPS auto-check when returning from location settings window
+    for (int i = 0; i < 6; i++) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      if (!mounted) return;
+      if (await Geolocator.isLocationServiceEnabled()) {
+        await _startLocationTracking();
+        break;
+      }
+    }
   }
 
   void _watchLocationService() {
     _serviceStatusSubscription?.cancel();
-    _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen((status) {
+    _serviceStatusSubscription = Geolocator.getServiceStatusStream().listen((
+      status,
+    ) {
       if (!mounted) return;
       if (status == ServiceStatus.enabled) {
         _startLocationTracking();
@@ -181,41 +211,6 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
     return LatLng(lat, lng);
   }
 
-  Future<void> _complete() async {
-    try {
-      await ref.read(bookingRepositoryProvider).complete(widget.bookingId);
-      await ref
-          .read(liveLocationRepositoryProvider)
-          .clearMechanicLocation(widget.bookingId);
-      ref.invalidate(mechanicBookingsProvider);
-      ref.invalidate(bookingDetailsProvider(widget.bookingId));
-      await _positionSubscription?.cancel();
-      _positionSubscription = null;
-
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => JobCompletedScreen(bookingId: widget.bookingId),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Job complete nahi hua: $e')));
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _positionSubscription?.cancel();
-    _serviceStatusSubscription?.cancel();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     final bookingAsync = ref.watch(bookingDetailsProvider(widget.bookingId));
@@ -231,7 +226,8 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
         data: (booking) {
           final customer = booking?['customer'] as Map?;
           final name = customer?['full_name']?.toString() ?? 'Customer';
-          final customerId = (customer?['id'] ?? booking?['customer_id'])?.toString() ?? '';
+          final customerId =
+              (customer?['id'] ?? booking?['customer_id'])?.toString() ?? '';
           final initials = name
               .split(' ')
               .where((x) => x.isNotEmpty)
@@ -242,10 +238,62 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
 
           final liveCustomer = liveLocation?.hasCustomerLocation == true
               ? LatLng(
-            liveLocation!.customerLatitude!,
-            liveLocation.customerLongitude!,
-          )
+                  liveLocation!.customerLatitude!,
+                  liveLocation.customerLongitude!,
+                )
               : _customerLocation(booking);
+
+          // Real-Time Auto Navigation when Customer completes payment OR cancels
+          final status = booking?['status']?.toString();
+
+          if (status == 'completed') {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              await _positionSubscription?.cancel();
+              _positionSubscription = null;
+              if (!mounted) return;
+              final currentContext = context;
+              if (!currentContext.mounted) return;
+              Navigator.pushAndRemoveUntil(
+                currentContext,
+                MaterialPageRoute(
+                  builder: (_) => JobCompletedScreen(bookingId: widget.bookingId),
+                ),
+                (route) => false,
+              );
+            });
+          } else if (status == 'cancelled') {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              await _positionSubscription?.cancel();
+              _positionSubscription = null;
+              if (!mounted) return;
+              final currentContext = context;
+              if (!currentContext.mounted) return;
+
+              ScaffoldMessenger.of(currentContext).showSnackBar(
+                const SnackBar(
+                  content: Text('Booking was cancelled by the customer.'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 4),
+                ),
+              );
+
+              Navigator.pushAndRemoveUntil(
+                currentContext,
+                MaterialPageRoute(
+                  builder: (_) => const MechanicHomeScreen(),
+                ),
+                (route) => false,
+              );
+            });
+          }
+
+          final activeUserId = ref.watch(authProvider).user?.id ?? '';
+          final unreadChat = ref.watch(
+            unreadBookingChatCountProvider((
+              bookingId: widget.bookingId,
+              activeUserId: activeUserId,
+            )),
+          );
 
           return Padding(
             padding: const EdgeInsets.all(18),
@@ -263,10 +311,15 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surfaceContainerHighest,
                       ),
                       child: Row(
                         children: [
@@ -284,7 +337,11 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
                           ),
                           TextButton(
                             onPressed: _openLocationSettings,
-                            child: Text(_locationPermissionDeniedForever ? 'Settings' : 'Turn On'),
+                            child: Text(
+                              _locationPermissionDeniedForever
+                                  ? 'Settings'
+                                  : 'Turn On',
+                            ),
                           ),
                         ],
                       ),
@@ -296,18 +353,18 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
                     child: Text('Starting live GPS tracking...'),
                   )
                 else if (_locationError != null)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                        _locationError!,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: context.colors.textMuted,
-                          fontSize: 11,
-                        ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      _locationError!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: context.colors.textMuted,
+                        fontSize: 11,
                       ),
                     ),
+                  ),
                 Text(
                   booking?['pickup_address']?.toString() ?? '',
                   maxLines: 1,
@@ -321,38 +378,86 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen> {
                         onPressed: customerId.isEmpty
                             ? null
                             : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => CallScreen(
-                              name: name,
-                              initials: initials,
-                            ),
-                          ),
-                        ),
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CallScreen(
+                                    name: name,
+                                    initials: initials,
+                                  ),
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: OutlineActionButton(
-                        label: 'Chat',
+                        label: unreadChat > 0 ? 'Chat ($unreadChat)' : 'Chat',
+                        icon: unreadChat > 0
+                            ? Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                  vertical: 1,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.redAccent,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '$unreadChat',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              )
+                            : null,
                         onPressed: customerId.isEmpty
                             ? null
                             : () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ChatScreen(
-                              bookingId: widget.bookingId,
-                              otherUserId: customerId,
-                              otherName: name,
-                            ),
-                          ),
-                        ),
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatScreen(
+                                    bookingId: widget.bookingId,
+                                    otherUserId: customerId,
+                                    otherName: name,
+                                  ),
+                                ),
+                              ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 10),
-                AccentButton(label: 'Mark Job Completed', onPressed: _complete),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Waiting for customer payment & job completion...',
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           );

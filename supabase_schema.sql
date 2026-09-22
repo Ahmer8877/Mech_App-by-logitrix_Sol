@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   role TEXT NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'mechanic', 'admin')),
   cnic_number TEXT,
   is_verified BOOLEAN NOT NULL DEFAULT FALSE, -- Mechanic verification status (Admin approved)
-  rating NUMERIC(3,2) DEFAULT 5.0,
+  rating NUMERIC(3,2) NOT NULL DEFAULT 0.0,
   total_jobs INTEGER DEFAULT 0,
   is_online BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -163,8 +163,15 @@ CREATE TABLE IF NOT EXISTS public.bookings (
   payment_method TEXT DEFAULT 'Cash',
   is_paid BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
 );
+
+ALTER TABLE public.bookings ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+-- Preserve the completion time for existing completed bookings.
+UPDATE public.bookings
+SET completed_at = COALESCE(completed_at, updated_at)
+WHERE status = 'completed' AND completed_at IS NULL;
 
 DO $$
 BEGIN
@@ -234,22 +241,18 @@ ALTER TABLE public.booking_locations ALTER COLUMN latitude DROP NOT NULL;
 ALTER TABLE public.booking_locations ALTER COLUMN longitude DROP NOT NULL;
 
 DROP POLICY IF EXISTS "Booking parties view live location" ON public.booking_locations;
-CREATE POLICY "Booking parties view live location" ON public.booking_locations FOR SELECT USING (
-  auth.uid() = mechanic_id OR auth.uid() = customer_id OR EXISTS (
-    SELECT 1 FROM public.bookings b
-    WHERE b.id = booking_locations.booking_id
-      AND (b.customer_id = auth.uid() OR b.mechanic_id = auth.uid())
-  )
-);
+CREATE POLICY "Booking parties view live location" ON public.booking_locations FOR SELECT USING (true);
+
 DROP POLICY IF EXISTS "Mechanic writes own location" ON public.booking_locations;
 CREATE POLICY "Mechanic writes own location" ON public.booking_locations FOR INSERT WITH CHECK (
-  auth.uid() = mechanic_id AND EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_id AND b.mechanic_id = auth.uid())
+  auth.uid() IS NOT NULL
 );
+
 DROP POLICY IF EXISTS "Mechanic updates own location" ON public.booking_locations;
 CREATE POLICY "Mechanic updates own location" ON public.booking_locations FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_locations.booking_id AND b.mechanic_id = auth.uid())
+  auth.uid() IS NOT NULL
 ) WITH CHECK (
-  EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_locations.booking_id AND b.mechanic_id = auth.uid())
+  auth.uid() IS NOT NULL
 );
 DROP POLICY IF EXISTS "Customer writes own location" ON public.booking_locations;
 CREATE POLICY "Customer writes own location" ON public.booking_locations FOR INSERT WITH CHECK (
@@ -489,16 +492,25 @@ CREATE POLICY "Participants send chat" ON public.chat_messages FOR INSERT WITH C
   )
 );
 
--- Reviews: public read is acceptable; only booking customers can submit one review.
+-- Reviews: public read is acceptable; booking customers can submit/update their review.
 CREATE POLICY "Anyone read reviews" ON public.reviews FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Customers create reviews" ON public.reviews;
 CREATE POLICY "Customers create reviews" ON public.reviews FOR INSERT WITH CHECK (
   auth.uid() = customer_id
-  AND EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_id AND b.customer_id = auth.uid() AND b.status = 'completed')
+  AND EXISTS (SELECT 1 FROM public.bookings b WHERE b.id = booking_id AND b.customer_id = auth.uid())
+);
+DROP POLICY IF EXISTS "Customers update reviews" ON public.reviews;
+CREATE POLICY "Customers update reviews" ON public.reviews FOR UPDATE USING (
+  auth.uid() = customer_id
+) WITH CHECK (
+  auth.uid() = customer_id
 );
 
--- Notifications: owner-only read/update.
+-- Notifications: owner-only read/update/delete.
 CREATE POLICY "Users read own notifications" ON public.notifications FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users mark own notifications read" ON public.notifications FOR UPDATE USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users delete own notifications" ON public.notifications;
+CREATE POLICY "Users delete own notifications" ON public.notifications FOR DELETE USING (auth.uid() = user_id);
 
 -- =====================================================================
 -- LIVE BOOKING FLOW ADDITIONS
@@ -726,6 +738,13 @@ SET rating = COALESCE(
   5.0
 )
 WHERE p.role = 'mechanic';
+
+-- New mechanics start at 0 until they receive a customer review.
+ALTER TABLE public.profiles ALTER COLUMN rating SET DEFAULT 0.0;
+UPDATE public.profiles p
+SET rating = 0
+WHERE p.role = 'mechanic'
+  AND NOT EXISTS (SELECT 1 FROM public.reviews r WHERE r.mechanic_id = p.id);
 
 -- Customer profiles do not have a mechanic rating.
 UPDATE public.profiles

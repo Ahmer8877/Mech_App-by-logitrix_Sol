@@ -13,14 +13,12 @@ class SupabaseConfig {
   SupabaseConfig._();
 
   static String get supabaseUrl => dotenv.env['SUPABASE_URL'] ?? '';
-  static String get supabaseKey => dotenv.env['PUBLISHABLE_KEY'] ?? dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+  static String get supabaseKey =>
+      dotenv.env['PUBLISHABLE_KEY'] ?? dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
   static Future<void> init() async {
     if (supabaseUrl.isNotEmpty && supabaseKey.isNotEmpty) {
-      await Supabase.initialize(
-          url: supabaseUrl,
-          publishableKey: supabaseKey
-      );
+      await Supabase.initialize(url: supabaseUrl, publishableKey: supabaseKey);
     } else {
       debugPrint('Supabase credentials missing in .env file.');
     }

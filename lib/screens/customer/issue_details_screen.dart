@@ -65,7 +65,7 @@ class _IssueDetailsScreenState extends ConsumerState<IssueDetailsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Photo add nahi ho saki: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to add photo: $e')));
       }
     }
   }
@@ -96,7 +96,7 @@ class _IssueDetailsScreenState extends ConsumerState<IssueDetailsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Photos upload nahi ho sakin: $e')),
+          SnackBar(content: Text('Failed to upload photos: $e')),
         );
       }
     } finally {

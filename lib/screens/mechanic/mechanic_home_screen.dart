@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/models/user_role.dart';
 import '../../cores/providers/auth_provider.dart';
+import '../../cores/providers/bookings_provider.dart';
 import '../../cores/providers/mechanic_stats_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_atoms.dart';
 import '../../widgets/app_buttons.dart';
-import '../../widgets/gauge_arc.dart';
+import '../notification/notifications_screen.dart';
 import '../profile/profile_screen.dart';
-import 'new_request_screen.dart';
 import 'earnings_screen.dart';
 import 'mechanic_bookings_screen.dart';
+import 'new_request_screen.dart';
+import 'request_details_screen.dart';
+import 'send_offer_screen.dart';
 
 class MechanicHomeScreen extends ConsumerStatefulWidget {
   const MechanicHomeScreen({super.key});
@@ -29,6 +32,10 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
     final userProfile = ref.watch(currentUserProfileProvider);
     final statsAsync = ref.watch(mechanicStatsProvider);
     final stats = statsAsync.valueOrNull ?? MechanicDashboardStats.empty;
+
+    final openRequestsAsync = ref.watch(openRequestsProvider);
+    final openRequests = openRequestsAsync.valueOrNull ?? [];
+    final recentRequest = openRequests.isNotEmpty ? openRequests.first : null;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -56,6 +63,14 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 ),
                 Row(
                   children: [
+                    NotificationIconButton(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Switch(
                       value: _online,
                       onChanged: (v) => setState(() => _online = v),
@@ -67,22 +82,22 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                         radius: 17,
                         backgroundColor: c.surface2,
                         backgroundImage:
-                        userProfile.avatarUrl != null &&
-                            userProfile.avatarUrl!.isNotEmpty
+                            userProfile.avatarUrl != null &&
+                                userProfile.avatarUrl!.isNotEmpty
                             ? NetworkImage(userProfile.avatarUrl!)
-                        as ImageProvider
+                                  as ImageProvider
                             : null,
                         child:
-                        (userProfile.avatarUrl == null ||
-                            userProfile.avatarUrl!.isEmpty)
+                            (userProfile.avatarUrl == null ||
+                                userProfile.avatarUrl!.isEmpty)
                             ? Text(
-                          userProfile.initials,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: scheme.primary,
-                          ),
-                        )
+                                userProfile.initials,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.primary,
+                                ),
+                              )
                             : null,
                       ),
                     ),
@@ -107,15 +122,17 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 ),
                 child: Column(
                   children: [
+                    Text(
+                      "TOTAL EARNINGS",
+                      style: TextStyle(
+                        color: scheme.onPrimary.withValues(alpha: 0.75),
+                        fontSize: 9.5,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                     const SizedBox(height: 4),
-                    statsAsync.isLoading
-                        ? SizedBox(
-                      height: 26,
-                      width: 26,
-                      child: CircularProgressIndicator(strokeWidth: 2.4, color: scheme.onPrimary.withValues(alpha: 0.7)),
-                    )
-                        : Text(
-                      'PKR ${stats.todayEarnings.toStringAsFixed(0)}',
+                    Text(
+                      'PKR ${stats.totalEarnings.toStringAsFixed(0)}',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(color: scheme.onPrimary, fontSize: 22),
                     ),
@@ -156,7 +173,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: StatMini(
-                    value: '${stats.pendingRequests}',
+                    value: '${openRequests.length}',
                     label: 'Pending',
                   ),
                 ),
@@ -187,100 +204,122 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            if (statsAsync.isLoading)
-              const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: CircularProgressIndicator(),
-                ),
-              )
-            else if (statsAsync.hasError)
+            if (openRequestsAsync.isLoading && recentRequest == null)
               AppCard(
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Requests unavailable',
-                        style: TextStyle(fontSize: 11, color: c.textMuted),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => ref.invalidate(mechanicStatsProvider),
-                      child: const Text('Retry'),
-                    ),
-                  ],
-                ),
-              )
-            else if (stats.recentRequestId == null)
-                AppCard(
-                  child: Text(
-                    'No new service requests right now.',
-                    style: TextStyle(fontSize: 11, color: c.textMuted),
-                  ),
-                )
-              else
-                AppCard(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              '⚙️ ${stats.recentRequestService ?? 'Service Request'}',
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                          if (stats.recentRequestBudget != null)
-                            Text(
-                              'PKR ${stats.recentRequestBudget!.toStringAsFixed(0)}',
-                              style: TextStyle(fontSize: 9.5, color: c.textMuted),
-                            ),
-                        ],
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: scheme.primary,
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(width: 10),
                       Text(
-                        stats.recentRequestAddress ?? 'Location unavailable',
-                        style: TextStyle(fontSize: 9.5, color: c.textSecondary),
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlineActionButton(
-                              label: 'View Details',
-                              onPressed: () => setState(() => _navIndex = 1),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: AccentButton(
-                              label: 'Send Offer',
-                              onPressed: () => setState(() => _navIndex = 1),
-                            ),
-                          ),
-                        ],
+                        'Searching for new requests...',
+                        style: TextStyle(fontSize: 11.5, color: c.textMuted),
                       ),
                     ],
                   ),
                 ),
-            const SizedBox(height: 16),
-            if (statsAsync.isLoading)
-              const SizedBox.shrink()
+              )
+            else if (recentRequest == null)
+              AppCard(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: scheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Searching for new requests...',
+                        style: TextStyle(fontSize: 11.5, color: c.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+              )
             else
-              Center(
-                child: GaugeArc(
-                  progress: stats.completedJobs == 0
-                      ? 0
-                      : (stats.completedJobs /
-                      (stats.completedJobs + stats.ongoingJobs + 1))
-                      .clamp(0.0, 1.0)
-                      .toDouble(),
-                  size: 90,
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '⚙️ ${recentRequest['service_title'] ?? 'Service Request'}',
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (recentRequest['budget_price'] != null)
+                          Text(
+                            'PKR ${((recentRequest['budget_price'] as num?) ?? 0).toStringAsFixed(0)}',
+                            style: TextStyle(fontSize: 9.5, color: c.textMuted),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      recentRequest['pickup_address']?.toString() ?? 'Location unavailable',
+                      style: TextStyle(fontSize: 9.5, color: c.textSecondary),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlineActionButton(
+                            label: 'View Details',
+                            onPressed: () {
+                              final id = recentRequest['id']?.toString();
+                              if (id != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => RequestDetailsScreen(bookingId: id),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: AccentButton(
+                            label: 'Send Offer',
+                            onPressed: () {
+                              final id = recentRequest['id']?.toString();
+                              if (id != null) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => SendOfferScreen(bookingId: id),
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
           ],

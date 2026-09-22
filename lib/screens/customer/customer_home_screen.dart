@@ -61,9 +61,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                 ),
                 Row(
                   children: [
-                    _IconCircleButton(
-                      icon: Icons.notifications_outlined,
-                      color: scheme.primary,
+                    NotificationIconButton(
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
                           builder: (_) => const NotificationsScreen(),
@@ -218,15 +216,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                       (s) => ServiceTile(
                         icon: s.icon,
                         label: s.title,
-                        onTap: () {
-                          ref.read(selectedServiceIdProvider.notifier).state =
-                              s.id;
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => const SelectVehicleScreen(),
-                            ),
-                          );
-                        },
+                        onTap: null, // Static display tile
                       ),
                     )
                     .toList(),
@@ -266,35 +256,6 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             label: 'Profile',
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _IconCircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-  final Color? color;
-  const _IconCircleButton({
-    required this.icon,
-    required this.onTap,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.colors;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        width: 34,
-        height: 34,
-        decoration: BoxDecoration(
-          color: c.surface2,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Icon(icon, size: 17, color: color),
       ),
     );
   }

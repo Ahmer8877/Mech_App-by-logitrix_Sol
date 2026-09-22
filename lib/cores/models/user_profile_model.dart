@@ -22,7 +22,7 @@ class UserProfile {
     required this.role,
     this.avatarUrl,
     this.cnic,
-    this.rating = 5.0,
+    this.rating = 0.0,
     this.totalJobs = 0,
     this.isVerified = false,
   });
@@ -39,7 +39,7 @@ class UserProfile {
       // `rating` belongs to mechanics. Customer profiles must not inherit
       // the mechanics' default 5.0 rating from the database.
       rating: map['role'] == 'mechanic'
-          ? (map['rating'] as num?)?.toDouble() ?? 5.0
+          ? (map['rating'] as num?)?.toDouble() ?? 0.0
           : 0.0,
       totalJobs: map['total_jobs'] ?? 0,
       isVerified: map['is_verified'] ?? false,

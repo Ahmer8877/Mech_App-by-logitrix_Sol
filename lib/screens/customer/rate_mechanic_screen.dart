@@ -34,6 +34,7 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
     if (uid == null || mid == null) return;
     setState(() => saving = true);
     try {
+      // 1. Submit review
       await supabase.from('reviews').upsert({
         'booking_id': widget.bookingId,
         'customer_id': uid,
@@ -42,8 +43,31 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
         'comment': comment.text.trim(),
       }, onConflict: 'booking_id,customer_id');
 
+      // 2. Calculate dynamic average rating and update mechanic's profile in Supabase
+      final reviewsResponse = await supabase
+          .from('reviews')
+          .select('rating')
+          .eq('mechanic_id', mid);
+
+      if (reviewsResponse.isNotEmpty) {
+        final totalReviews = reviewsResponse.length;
+        final sumRating = reviewsResponse.fold<double>(
+            0.0, (sum, item) => sum + ((item['rating'] as num?)?.toDouble() ?? 5.0));
+        final avgRating = double.parse((sumRating / totalReviews).toStringAsFixed(1));
+
+        await supabase.from('profiles').update({
+          'rating': avgRating,
+          'total_jobs': totalReviews,
+        }).eq('id', mid);
+      }
+
+      // 3. Mark booking as COMPLETED and PAID
+      await ref.read(bookingRepositoryProvider).complete(widget.bookingId);
+
       ref.invalidate(bookingsProvider);
+      ref.invalidate(bookingDetailsProvider(widget.bookingId));
       ref.invalidate(mechanicStatsProvider);
+
       if (mounted) {
         Navigator.pushAndRemoveUntil(
           context,
@@ -53,9 +77,9 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit review: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to submit review: $e')));
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -77,7 +101,10 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
               Text(
                 (x?['mechanic'] as Map?)?['full_name']?.toString() ??
                     'Mechanic',
-                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 14),
               Row(
@@ -104,7 +131,7 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
               ),
               const Spacer(),
               AccentButton(
-                label: saving ? 'Submitting...' : 'Submit Review',
+                label: saving ? 'Submitting & Completing...' : 'Submit Review & Complete',
                 onPressed: saving ? null : () => submit(x),
               ),
             ],

@@ -23,18 +23,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1400),
-    )..forward()..addStatusListener((status) {
-      if (status == AnimationStatus.completed) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            _navigateNext();
-          }
-        });
-      }
-    });
+    _controller =
+        AnimationController(
+            vsync: this,
+            duration: const Duration(milliseconds: 1400),
+          )
+          ..forward()
+          ..addStatusListener((status) {
+            if (status == AnimationStatus.completed) {
+              Future.delayed(const Duration(milliseconds: 300), () {
+                if (mounted) {
+                  _navigateNext();
+                }
+              });
+            }
+          });
   }
 
   Future<void> _navigateNext() async {

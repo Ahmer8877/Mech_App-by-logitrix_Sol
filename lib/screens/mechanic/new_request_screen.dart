@@ -16,7 +16,7 @@ class NewRequestScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('New Requests')),
       body: requests.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => (Center(child: Text('Requests load nahi huay: $e'))),
+        error: (e, _) => Center(child: Text('Failed to load requests: $e')),
         data: (items) => items.isEmpty
             ? const Center(child: Text('No new requests right now.'))
             : ListView.separated(

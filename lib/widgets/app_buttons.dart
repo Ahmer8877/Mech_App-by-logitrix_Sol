@@ -1,6 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../cores/providers/notifications_provider.dart';
 import '../cores/theme/app_theme.dart';
+
+/// Notification Icon Button with real-time live badge counter for unread notifications
+class NotificationIconButton extends ConsumerWidget {
+  final VoidCallback onTap;
+
+  const NotificationIconButton({super.key, required this.onTap});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unreadCount = ref.watch(unreadNotificationsCountProvider);
+    final scheme = Theme.of(context).colorScheme;
+    final c = context.colors;
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(100),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: c.surface2,
+          shape: BoxShape.circle,
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Icon(
+              Icons.notifications_outlined,
+              size: 20,
+              color: scheme.primary,
+            ),
+            if (unreadCount > 0)
+              Positioned(
+                right: 2,
+                top: 2,
+                child: Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    unreadCount > 9 ? '9+' : '$unreadCount',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 8.5,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// Amber "primary CTA" button — used for the main action on a screen
 /// (Confirm, Next, Send Offer). Mirrors .cta in the HTML kit.
@@ -123,7 +187,10 @@ class OutlineActionButton extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (icon != null) ...[
-              IconTheme.merge(data: const IconThemeData(size: 18), child: icon!),
+              IconTheme.merge(
+                data: const IconThemeData(size: 18),
+                child: icon!,
+              ),
               const SizedBox(width: 6),
             ],
             Flexible(

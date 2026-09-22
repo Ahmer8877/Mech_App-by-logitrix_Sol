@@ -39,7 +39,7 @@ class OffersScreen extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Offer accept nahi hua: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to accept offer: $e')));
       }
     }
   }
@@ -53,7 +53,7 @@ class OffersScreen extends ConsumerWidget {
       body: offers.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
-            Center(child: Text('Offers load nahi huay: $error')),
+            Center(child: Text('Failed to load offers: $error')),
         data: (items) {
           if (items.isEmpty) {
             return const Center(child: Text('Waiting for mechanic offers...'));

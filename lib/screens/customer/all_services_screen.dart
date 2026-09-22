@@ -1,12 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../cores/models/service_model.dart';
 import '../../cores/providers/services_provider.dart';
 import '../../widgets/app_atoms.dart';
 import '../../widgets/step_progress.dart';
-import 'select_vehicle_screen.dart';
 
 class AllServicesScreen extends ConsumerWidget {
   const AllServicesScreen({super.key});
+
+  static const List<ServiceItem> _additionalStaticServices = [
+    ServiceItem(
+      id: 'static_fuel',
+      title: 'Fuel Delivery',
+      description: 'Emergency petrol/diesel delivery',
+      icon: Icons.local_gas_station_outlined,
+    ),
+    ServiceItem(
+      id: 'static_locksmith',
+      title: 'Car Locksmith',
+      description: 'Key unlock & door lockout service',
+      icon: Icons.key_outlined,
+    ),
+    ServiceItem(
+      id: 'static_oil',
+      title: 'Oil Change',
+      description: 'Engine oil & filter replacement',
+      icon: Icons.opacity_outlined,
+    ),
+    ServiceItem(
+      id: 'static_brake',
+      title: 'Brake Repair',
+      description: 'Brake pad & disc check',
+      icon: Icons.car_repair_outlined,
+    ),
+    ServiceItem(
+      id: 'static_alignment',
+      title: 'Wheel Alignment',
+      description: 'Tyre balancing & alignment',
+      icon: Icons.tire_repair_outlined,
+    ),
+    ServiceItem(
+      id: 'static_electrical',
+      title: 'Electrical Check',
+      description: 'Wiring & fuse box diagnostics',
+      icon: Icons.electrical_services_outlined,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -20,7 +59,7 @@ class AllServicesScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Services load nahi ho sakin.'),
+              const Text('Failed to load services.'),
               TextButton(
                 onPressed: () => ref.invalidate(servicesProvider),
                 child: const Text('Retry'),
@@ -28,34 +67,32 @@ class AllServicesScreen extends ConsumerWidget {
             ],
           ),
         ),
-        data: (services) {
-          if (services.isEmpty) {
-            return const Center(child: Text('No active services available.'));
+        data: (fetchedServices) {
+          final Map<String, ServiceItem> allMap = {};
+          for (final s in fetchedServices) {
+            allMap[s.title.toLowerCase()] = s;
           }
+          for (final s in _additionalStaticServices) {
+            allMap.putIfAbsent(s.title.toLowerCase(), () => s);
+          }
+          final displayList = allMap.values.toList();
+
           return Padding(
             padding: const EdgeInsets.all(18),
             child: GridView.builder(
-              itemCount: services.length,
+              itemCount: displayList.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
-                mainAxisSpacing: 10,
-                crossAxisSpacing: 10,
-                childAspectRatio: 0.85,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1.05,
               ),
               itemBuilder: (context, i) {
-                final service = services[i];
+                final service = displayList[i];
                 return ServiceTile(
                   icon: service.icon,
                   label: service.title,
-                  onTap: () {
-                    ref.read(selectedServiceIdProvider.notifier).state =
-                        service.id;
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const SelectVehicleScreen(),
-                      ),
-                    );
-                  },
+                  onTap: null, // Purely static display tile
                 );
               },
             ),

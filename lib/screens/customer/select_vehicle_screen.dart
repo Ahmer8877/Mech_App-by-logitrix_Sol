@@ -30,7 +30,7 @@ class SelectVehicleScreen extends ConsumerWidget {
               child: vehiclesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, _) => _ErrorState(
-                  message: 'Vehicles load nahi ho sakin.',
+                  message: 'Failed to load vehicles.',
                   onRetry: () => ref.invalidate(vehiclesProvider),
                 ),
                 data: (vehicles) {

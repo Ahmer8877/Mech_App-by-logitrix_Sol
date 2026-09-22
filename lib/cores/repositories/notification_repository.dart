@@ -23,4 +23,18 @@ class NotificationRepository {
         .eq('user_id', userId)
         .eq('is_read', false);
   }
+
+  Future<void> deleteSingle(String notificationId, String userId) async {
+    await client
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId);
+  }
+
+  Future<void> clearAll(String userId) async {
+    await client
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId);
+  }
 }

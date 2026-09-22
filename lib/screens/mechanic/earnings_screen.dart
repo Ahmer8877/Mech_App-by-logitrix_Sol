@@ -12,18 +12,19 @@ class EarningsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Earnings')),
       body: a.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => (Center(child: Text('$e'))),
+        error: (e, _) => (Center(child: Text('Failed to load earnings: $e'))),
         data: (s) => Padding(
           padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'PKR ${s.todayEarnings.toStringAsFixed(0)}',
+                'PKR ${s.totalEarnings.toStringAsFixed(0)}',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
-              Text('Today', style: TextStyle(color: context.colors.textMuted)),
+              Text('Total Lifetime Earnings', style: TextStyle(color: context.colors.textMuted)),
               const SizedBox(height: 20),
+              _Row("Today's Earnings", 'PKR ${s.todayEarnings.toStringAsFixed(0)}'),
               _Row('This Week', 'PKR ${s.weekEarnings.toStringAsFixed(0)}'),
               _Row('This Month', 'PKR ${s.monthEarnings.toStringAsFixed(0)}'),
               _Row('Total Jobs Completed', s.totalCompletedJobs.toString()),

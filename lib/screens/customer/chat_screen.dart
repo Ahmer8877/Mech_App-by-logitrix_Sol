@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/chat_provider.dart';
 import '../../cores/theme/app_theme.dart';
@@ -26,6 +25,22 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _controller = TextEditingController();
   bool _sending = false;
 
+  @override
+  void initState() {
+    super.initState();
+    _markRead();
+  }
+
+  void _markRead() {
+    final activeUserId = ref.read(authProvider).user?.id;
+    if (activeUserId != null && widget.bookingId.isNotEmpty) {
+      ref.read(chatRepositoryProvider).markRead(
+            bookingId: widget.bookingId,
+            activeUserId: activeUserId,
+          );
+    }
+  }
+
   Future<void> _send() async {
     final userId = ref.read(authProvider).user?.id;
     final message = _controller.text.trim();
@@ -38,20 +53,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     setState(() => _sending = true);
     try {
-      await ref
-          .read(chatRepositoryProvider)
-          .send(
+      await ref.read(chatRepositoryProvider).send(
             bookingId: widget.bookingId,
             senderId: userId,
             receiverId: widget.otherUserId,
             message: message,
           );
       _controller.clear();
+      _markRead();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Message send nahi hua: $e')));
+        ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -76,6 +90,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final messages = ref.watch(chatMessagesProvider(widget.bookingId));
     final currentUserId = ref.watch(authProvider).user?.id;
 
+    // Auto mark read on data arrival
+    _markRead();
+
     return Scaffold(
       appBar: AppBar(title: Text(widget.otherName)),
       body: Column(
@@ -84,7 +101,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             child: messages.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) =>
-                  Center(child: Text('Chat load nahi hui: $error')),
+                  Center(child: Text('Failed to load chat: $error')),
               data: (items) {
                 if (items.isEmpty) {
                   return const Center(child: Text('No messages yet.'));
@@ -96,7 +113,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   itemBuilder: (context, index) {
                     final message = items[index];
                     final isMine = message.senderId == currentUserId;
-                    final primary = Theme.of(context).colorScheme.primary;
 
                     return Align(
                       alignment: isMine
@@ -105,9 +121,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                       child: Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(10),
-                        constraints: const BoxConstraints(maxWidth: 300),
                         decoration: BoxDecoration(
-                          color: isMine ? primary : context.colors.surface2,
+                          color: isMine
+                              ? Theme.of(context).colorScheme.primary
+                              : context.colors.surface2,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -133,19 +150,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _controller,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sending ? null : _send(),
                       decoration: const InputDecoration(
                         hintText: 'Type a message...',
                       ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sending ? null : _send(),
                     ),
                   ),
                   IconButton(
                     onPressed: _sending ? null : _send,
                     icon: _sending
                         ? const SizedBox(
-                            width: 20,
-                            height: 20,
+                            width: 18,
+                            height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Icon(Icons.send),

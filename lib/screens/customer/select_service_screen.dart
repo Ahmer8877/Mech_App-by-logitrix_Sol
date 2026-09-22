@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../cores/providers/services_provider.dart';
+import '../../cores/models/service_model.dart';
 import '../../cores/providers/booking_draft_provider.dart';
+import '../../cores/providers/services_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/step_progress.dart';
@@ -9,6 +10,51 @@ import 'issue_details_screen.dart';
 
 class SelectServiceScreen extends ConsumerWidget {
   const SelectServiceScreen({super.key});
+
+  static const List<ServiceItem> _additionalServices = [
+    ServiceItem(
+      id: 'static_fuel',
+      title: 'Fuel Delivery',
+      description: 'Emergency petrol/diesel delivery',
+      icon: Icons.local_gas_station_outlined,
+      basePrice: 1500,
+    ),
+    ServiceItem(
+      id: 'static_locksmith',
+      title: 'Car Locksmith',
+      description: 'Key unlock & door lockout service',
+      icon: Icons.key_outlined,
+      basePrice: 2000,
+    ),
+    ServiceItem(
+      id: 'static_oil',
+      title: 'Oil Change',
+      description: 'Engine oil & filter replacement',
+      icon: Icons.opacity_outlined,
+      basePrice: 3500,
+    ),
+    ServiceItem(
+      id: 'static_brake',
+      title: 'Brake Repair',
+      description: 'Brake pad & disc check',
+      icon: Icons.car_repair_outlined,
+      basePrice: 2200,
+    ),
+    ServiceItem(
+      id: 'static_alignment',
+      title: 'Wheel Alignment',
+      description: 'Tyre balancing & alignment',
+      icon: Icons.tire_repair_outlined,
+      basePrice: 1800,
+    ),
+    ServiceItem(
+      id: 'static_electrical',
+      title: 'Electrical Check',
+      description: 'Wiring & fuse box diagnostics',
+      icon: Icons.electrical_services_outlined,
+      basePrice: 1600,
+    ),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -32,7 +78,7 @@ class SelectServiceScreen extends ConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Services load nahi ho sakin.'),
+                      const Text('Failed to load services.'),
                       TextButton(
                         onPressed: () => ref.invalidate(servicesProvider),
                         child: const Text('Retry'),
@@ -40,7 +86,16 @@ class SelectServiceScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
-                data: (services) {
+                data: (fetchedServices) {
+                  final Map<String, ServiceItem> allMap = {};
+                  for (final s in fetchedServices) {
+                    allMap[s.title.toLowerCase()] = s;
+                  }
+                  for (final s in _additionalServices) {
+                    allMap.putIfAbsent(s.title.toLowerCase(), () => s);
+                  }
+                  final services = allMap.values.toList();
+
                   if (services.isEmpty) {
                     return const Center(
                       child: Text('No active services available.'),
@@ -51,6 +106,7 @@ class SelectServiceScreen extends ConsumerWidget {
                           services.any((s) => s.id == selectedId)
                       ? selectedId
                       : services.first.id;
+
                   if (selectedId == null) {
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (context.mounted) {
@@ -59,6 +115,7 @@ class SelectServiceScreen extends ConsumerWidget {
                       }
                     });
                   }
+
                   return ListView.separated(
                     itemCount: services.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 8),
@@ -122,6 +179,7 @@ class SelectServiceScreen extends ConsumerWidget {
                                 style: TextStyle(
                                   fontSize: 9.5,
                                   color: scheme.primary,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],

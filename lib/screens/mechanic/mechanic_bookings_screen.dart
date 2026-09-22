@@ -9,6 +9,45 @@ import 'on_the_way_screen.dart';
 class MechanicBookingsScreen extends ConsumerWidget {
   const MechanicBookingsScreen({super.key});
 
+  Future<void> _cancelBooking(BuildContext context, WidgetRef ref, String bookingId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Booking?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: const Text('Are you sure you want to cancel this booking? The customer will be notified.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ref.read(bookingRepositoryProvider).cancel(bookingId);
+        ref.invalidate(mechanicBookingsProvider);
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Booking cancelled successfully.')),
+          );
+        }
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to cancel booking: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final bookings = ref.watch(mechanicBookingsProvider);
@@ -35,67 +74,75 @@ class MechanicBookingsScreen extends ConsumerWidget {
                     booking.status == 'accepted' ||
                     booking.status == 'on_the_way' ||
                     booking.status == 'in_progress';
-                return InkWell(
-                  borderRadius: BorderRadius.circular(14),
-                  onTap: active
-                      ? () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                OnTheWayScreen(bookingId: booking.id),
-                          ),
-                        )
-                      : null,
-                  child: AppCard(
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                booking.service,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              Text(
-                                booking.status,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: context.colors.textMuted,
-                                ),
-                              ),
-                              if (booking.address.isNotEmpty)
+                return AppCard(
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Text(
-                                  booking.address,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                                  booking.service,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  booking.status,
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: context.colors.textMuted,
                                   ),
                                 ),
+                                if (booking.address.isNotEmpty)
+                                  Text(
+                                    booking.address,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: context.colors.textMuted,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text('PKR ${booking.price.toStringAsFixed(0)}'),
                             ],
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
+                        ],
+                      ),
+                      if (active) ...[
+                        const Divider(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
-                            Text('PKR ${booking.price.toStringAsFixed(0)}'),
-                            if (active)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 5),
-                                child: Text(
-                                  'Open map →',
-                                  style: TextStyle(fontSize: 10),
+                            TextButton.icon(
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => OnTheWayScreen(bookingId: booking.id),
                                 ),
                               ),
+                              icon: const Icon(Icons.map_outlined, size: 14),
+                              label: const Text('Open Map', style: TextStyle(fontSize: 11)),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              onPressed: () => _cancelBooking(context, ref, booking.id),
+                              icon: Icon(Icons.cancel_outlined, size: 14, color: context.colors.danger),
+                              label: Text('Cancel', style: TextStyle(fontSize: 11, color: context.colors.danger)),
+                            ),
                           ],
                         ),
                       ],
-                    ),
+                    ],
                   ),
                 );
               },

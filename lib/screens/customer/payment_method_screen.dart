@@ -95,7 +95,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                 ),
                 const SizedBox(height: 10),
                 AccentButton(
-                  label: _saving ? 'Saving...' : 'Confirm Payment',
+                  label: _saving ? 'Saving...' : 'Confirm Payment & Rate',
                   onPressed: _saving ? null : _pay,
                 ),
               ],
