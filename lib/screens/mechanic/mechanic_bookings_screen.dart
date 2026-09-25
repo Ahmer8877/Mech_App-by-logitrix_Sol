@@ -9,12 +9,21 @@ import 'on_the_way_screen.dart';
 class MechanicBookingsScreen extends ConsumerWidget {
   const MechanicBookingsScreen({super.key});
 
-  Future<void> _cancelBooking(BuildContext context, WidgetRef ref, String bookingId) async {
+  Future<void> _cancelBooking(
+    BuildContext context,
+    WidgetRef ref,
+    String bookingId,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Booking?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to cancel this booking? The customer will be notified.'),
+        title: const Text(
+          'Cancel Booking?',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to cancel this booking? The customer will be notified.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -127,17 +136,32 @@ class MechanicBookingsScreen extends ConsumerWidget {
                               onPressed: () => Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (_) => OnTheWayScreen(bookingId: booking.id),
+                                  builder: (_) =>
+                                      OnTheWayScreen(bookingId: booking.id),
                                 ),
                               ),
                               icon: const Icon(Icons.map_outlined, size: 14),
-                              label: const Text('Open Map', style: TextStyle(fontSize: 11)),
+                              label: const Text(
+                                'Open Map',
+                                style: TextStyle(fontSize: 11),
+                              ),
                             ),
                             const SizedBox(width: 8),
                             TextButton.icon(
-                              onPressed: () => _cancelBooking(context, ref, booking.id),
-                              icon: Icon(Icons.cancel_outlined, size: 14, color: context.colors.danger),
-                              label: Text('Cancel', style: TextStyle(fontSize: 11, color: context.colors.danger)),
+                              onPressed: () =>
+                                  _cancelBooking(context, ref, booking.id),
+                              icon: Icon(
+                                Icons.cancel_outlined,
+                                size: 14,
+                                color: context.colors.danger,
+                              ),
+                              label: Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: context.colors.danger,
+                                ),
+                              ),
                             ),
                           ],
                         ),

@@ -23,6 +23,19 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
 class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   int _navIndex = 0;
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Good Morning';
+    } else if (hour < 17) {
+      return 'Good Afternoon';
+    } else if (hour < 21) {
+      return 'Good Evening';
+    } else {
+      return 'Good Night';
+    }
+  }
+
   Widget _buildHomeContent(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final c = context.colors;
@@ -32,6 +45,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
         servicesAsync.valueOrNull?.take(6).toList() ?? const [];
 
     final firstName = userProfile.fullName.trim().split(' ').first;
+    final greeting = _getGreeting();
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -47,7 +61,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Good Morning, $firstName 👋',
+                        '$greeting, $firstName 👋',
                         style: Theme.of(
                           context,
                         ).textTheme.titleLarge?.copyWith(fontSize: 17),

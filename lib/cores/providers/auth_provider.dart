@@ -38,17 +38,25 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
             .from('profiles')
             .stream(primaryKey: ['id'])
             .eq('id', user.id)
-            .listen((rows) {
-              if (rows.isNotEmpty && state.user != null) {
-                final updatedProfile = UserProfile.fromMap(
-                  Map<String, dynamic>.from(rows.first),
-                );
-                state = state.copyWith(
-                  profile: updatedProfile,
-                  role: updatedProfile.role,
-                );
-              }
-            });
+            .handleError((e) {
+              debugPrint('Profiles realtime stream error: $e');
+            })
+            .listen(
+              (rows) {
+                if (rows.isNotEmpty && state.user != null) {
+                  final updatedProfile = UserProfile.fromMap(
+                    Map<String, dynamic>.from(rows.first),
+                  );
+                  state = state.copyWith(
+                    profile: updatedProfile,
+                    role: updatedProfile.role,
+                  );
+                }
+              },
+              onError: (e) {
+                debugPrint('Profiles stream listen error: $e');
+              },
+            );
       } catch (_) {}
     }
 

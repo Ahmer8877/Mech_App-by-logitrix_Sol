@@ -138,7 +138,13 @@ INSERT INTO public.services (title, description, icon_name, base_price) VALUES
   ('Battery Jumpstart', 'Battery checkup and jumpstart', 'battery_charging_full_outlined', 1200),
   ('Air Conditioning', 'AC cooling and gas refill', 'ac_unit_outlined', 1650),
   ('Tyre Change', 'Flat tyre repair or replacement', 'tire_repair_outlined', 1000),
-  ('Towing Service', 'Vehicle towing & emergency pickup', 'local_shipping_outlined', 2500)
+  ('Towing Service', 'Vehicle towing & emergency pickup', 'local_shipping_outlined', 2500),
+  ('Fuel Delivery', 'Emergency petrol/diesel delivery', 'local_gas_station_outlined', 1500),
+  ('Car Locksmith', 'Key unlock & door lockout service', 'key_outlined', 2000),
+  ('Oil Change', 'Engine oil & filter replacement', 'opacity_outlined', 3500),
+  ('Brake Repair', 'Brake pad & disc check', 'car_repair_outlined', 2200),
+  ('Wheel Alignment', 'Tyre balancing & alignment', 'tire_repair_outlined', 1800),
+  ('Electrical Check', 'Wiring & fuse box diagnostics', 'electrical_services_outlined', 1600)
 ON CONFLICT (lower(trim(title))) DO NOTHING;
 
 -- ---------------------------------------------------------------------
@@ -417,7 +423,6 @@ AS $$
     FROM public.profiles
     WHERE id = auth.uid()
       AND role = 'mechanic'
-      AND is_verified = true
   );
 $$;
 
@@ -601,6 +606,8 @@ GRANT EXECUTE ON FUNCTION public.accept_offer(uuid,uuid) TO authenticated;
 -- mechanic_id/status changes that move a booking between realtime views.
 ALTER TABLE public.bookings REPLICA IDENTITY FULL;
 ALTER TABLE public.booking_locations REPLICA IDENTITY FULL;
+ALTER TABLE public.notifications REPLICA IDENTITY FULL;
+ALTER TABLE public.chat_messages REPLICA IDENTITY FULL;
 
 DO $$
 BEGIN
@@ -620,6 +627,24 @@ BEGIN
       AND tablename = 'booking_locations'
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.booking_locations;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'chat_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
   END IF;
 END $$;
 

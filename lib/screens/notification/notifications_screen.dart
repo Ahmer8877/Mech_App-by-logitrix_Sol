@@ -15,8 +15,13 @@ class NotificationsScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete Notification?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        content: Text('Are you sure you want to delete "${notification.title}"?'),
+        title: const Text(
+          'Delete Notification?',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        content: Text(
+          'Are you sure you want to delete "${notification.title}"?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -32,7 +37,9 @@ class NotificationsScreen extends ConsumerWidget {
     );
 
     if (confirmed == true) {
-      await ref.read(notificationsProvider.notifier).deleteNotification(notification.id);
+      await ref
+          .read(notificationsControllerProvider)
+          .deleteNotification(notification.id);
     }
   }
 
@@ -40,8 +47,13 @@ class NotificationsScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clear All Notifications?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        content: const Text('Are you sure you want to delete all notifications? This action cannot be undone.'),
+        title: const Text(
+          'Clear All Notifications?',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        content: const Text(
+          'Are you sure you want to delete all notifications? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -57,7 +69,7 @@ class NotificationsScreen extends ConsumerWidget {
     );
 
     if (confirmed == true) {
-      await ref.read(notificationsProvider.notifier).clearAll();
+      await ref.read(notificationsControllerProvider).clearAll();
     }
   }
 
@@ -77,7 +89,7 @@ class NotificationsScreen extends ConsumerWidget {
               icon: const Icon(Icons.done_all, size: 20),
               tooltip: 'Mark all as read',
               onPressed: () =>
-                  ref.read(notificationsProvider.notifier).markAllAsRead(),
+                  ref.read(notificationsControllerProvider).markAllAsRead(),
             ),
             IconButton(
               icon: const Icon(Icons.delete_outline, size: 20),
@@ -125,10 +137,15 @@ class NotificationsScreen extends ConsumerWidget {
                       color: Colors.redAccent,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(Icons.delete_outline, color: Colors.white),
+                    child: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.white,
+                    ),
                   ),
                   onDismissed: (_) {
-                    ref.read(notificationsProvider.notifier).deleteNotification(n.id);
+                    ref
+                        .read(notificationsControllerProvider)
+                        .deleteNotification(n.id);
                   },
                   child: InkWell(
                     onLongPress: () => _confirmDeleteSingle(context, ref, n),
@@ -154,7 +171,11 @@ class NotificationsScreen extends ConsumerWidget {
                               color: c.surface2,
                               borderRadius: BorderRadius.circular(9),
                             ),
-                            child: Icon(n.icon, size: 16, color: scheme.primary),
+                            child: Icon(
+                              n.icon,
+                              size: 16,
+                              color: scheme.primary,
+                            ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -179,7 +200,10 @@ class NotificationsScreen extends ConsumerWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   n.time,
-                                  style: TextStyle(fontSize: 9, color: c.textMuted),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    color: c.textMuted,
+                                  ),
                                 ),
                               ],
                             ),
@@ -195,11 +219,16 @@ class NotificationsScreen extends ConsumerWidget {
                             ),
                           const SizedBox(width: 4),
                           IconButton(
-                            icon: const Icon(Icons.close, size: 16, color: Colors.grey),
+                            icon: const Icon(
+                              Icons.close,
+                              size: 16,
+                              color: Colors.grey,
+                            ),
                             tooltip: 'Delete notification',
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => _confirmDeleteSingle(context, ref, n),
+                            onPressed: () =>
+                                _confirmDeleteSingle(context, ref, n),
                           ),
                         ],
                       ),

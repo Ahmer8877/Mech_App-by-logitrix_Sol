@@ -16,7 +16,24 @@ class VehiclesNotifier extends AsyncNotifier<List<Vehicle>> {
     _repository = ref.read(vehicleRepositoryProvider);
     final userId = ref.watch(authProvider.select((state) => state.user?.id));
     if (userId == null) return const [];
-    return _repository.getMyVehicles(userId);
+
+    // Ensure Supabase auth session is fully established on login
+    if (supabase.auth.currentSession == null) {
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    try {
+      final list = await _repository.getMyVehicles(userId);
+      if (list.isNotEmpty) return list;
+    } catch (_) {}
+
+    // Retry once if initial fetch returned empty or failed due to session sync lag on re-login
+    await Future.delayed(const Duration(milliseconds: 800));
+    try {
+      return await _repository.getMyVehicles(userId);
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<bool> addVehicle(String model, String plate, {String? year}) async {

@@ -1,3 +1,4 @@
+import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/booking_model.dart';
 
@@ -31,7 +32,11 @@ class BookingRepository {
         .toList();
   }
 
-  Future<List<Map<String, dynamic>>> getOpenRequests() async {
+  Future<List<Map<String, dynamic>>> getOpenRequests({
+    double? mechanicLat,
+    double? mechanicLng,
+    double maxDistanceMeters = 5000.0,
+  }) async {
     final rows = await client
         .from('bookings')
         .select(
@@ -40,7 +45,40 @@ class BookingRepository {
         .isFilter('mechanic_id', null)
         .or('status.eq.pending,status.eq.offered')
         .order('created_at', ascending: false);
-    return (rows as List).map((e) => Map<String, dynamic>.from(e)).toList();
+
+    final list = (rows as List)
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    for (final req in list) {
+      final reqLat = (req['latitude'] as num?)?.toDouble();
+      final reqLng = (req['longitude'] as num?)?.toDouble();
+
+      if (mechanicLat != null &&
+          mechanicLng != null &&
+          reqLat != null &&
+          reqLng != null) {
+        final distMeters = Geolocator.distanceBetween(
+          mechanicLat,
+          mechanicLng,
+          reqLat,
+          reqLng,
+        );
+        req['distance_meters'] = distMeters;
+        req['distance_km'] = (distMeters / 1000.0).toStringAsFixed(1);
+        req['is_within_range'] = distMeters <= maxDistanceMeters;
+      } else {
+        req['is_within_range'] = true;
+      }
+    }
+
+    list.sort((a, b) {
+      final distA = (a['distance_meters'] as num?)?.toDouble() ?? 0;
+      final distB = (b['distance_meters'] as num?)?.toDouble() ?? 0;
+      return distA.compareTo(distB);
+    });
+
+    return list;
   }
 
   Future<Map<String, dynamic>?> getRawBooking(String id) async => await client
@@ -86,40 +124,55 @@ class BookingRepository {
   }
 
   Future<void> setPaymentMethod(String bookingId, String method) async {
-    await client.from('bookings').update({
-      'payment_method': method,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', bookingId);
+    await client
+        .from('bookings')
+        .update({
+          'payment_method': method,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
   }
 
   Future<void> markPaid(String bookingId, String method) async {
-    await client.from('bookings').update({
-      'is_paid': true,
-      'payment_method': method,
-      'status': 'completed',
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', bookingId);
+    await client
+        .from('bookings')
+        .update({
+          'is_paid': true,
+          'payment_method': method,
+          'status': 'completed',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
   }
 
   Future<void> updateStatus(String bookingId, String status) async {
-    await client.from('bookings').update({
-      'status': status,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', bookingId);
+    await client
+        .from('bookings')
+        .update({
+          'status': status,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
   }
 
   Future<void> complete(String bookingId) async {
-    await client.from('bookings').update({
-      'status': 'completed',
-      'is_paid': true,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', bookingId);
+    await client
+        .from('bookings')
+        .update({
+          'status': 'completed',
+          'is_paid': true,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
   }
 
   Future<void> cancel(String bookingId) async {
-    await client.from('bookings').update({
-      'status': 'cancelled',
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-    }).eq('id', bookingId);
+    await client
+        .from('bookings')
+        .update({
+          'status': 'cancelled',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
   }
 }

@@ -230,6 +230,28 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
             WidgetsBinding.instance.addPostFrameCallback(
               (_) => _startCustomerTracking(),
             );
+          } else if (status == 'cancelled') {
+            WidgetsBinding.instance.addPostFrameCallback((_) async {
+              await _positionSubscription?.cancel();
+              _positionSubscription = null;
+              if (!mounted) return;
+              final currentContext = context;
+              if (!currentContext.mounted) return;
+
+              ScaffoldMessenger.of(currentContext).showSnackBar(
+                const SnackBar(
+                  content: Text('Booking was cancelled. Returning to home.'),
+                  backgroundColor: Colors.red,
+                  duration: Duration(seconds: 4),
+                ),
+              );
+
+              Navigator.pushAndRemoveUntil(
+                currentContext,
+                MaterialPageRoute(builder: (_) => const CustomerHomeScreen()),
+                (route) => false,
+              );
+            });
           }
           final service = data['service_title']?.toString() ?? 'Service';
           final address = data['pickup_address']?.toString() ?? '';
@@ -380,16 +402,21 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
                             : null,
                         onPressed: mechanicId.isEmpty
                             ? null
-                            : () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    bookingId: widget.bookingId,
-                                    otherUserId: mechanicId,
-                                    otherName: name,
-                                  ),
-                                ),
-                              ),
+                            : () =>
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatScreen(
+                                        bookingId: widget.bookingId,
+                                        otherUserId: mechanicId,
+                                        otherName: name,
+                                      ),
+                                    ),
+                                  ).then((_) {
+                                    ref.invalidate(
+                                      chatMessagesProvider(widget.bookingId),
+                                    );
+                                  }),
                       ),
                     ),
                   ],

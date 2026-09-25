@@ -201,7 +201,9 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
 
     if (points.length < 2) {
       if (points.length == 1) {
-        _controller?.animateCamera(CameraUpdate.newLatLngZoom(points.first, 15));
+        _controller?.animateCamera(
+          CameraUpdate.newLatLngZoom(points.first, 15),
+        );
       }
       return;
     }

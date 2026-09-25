@@ -46,6 +46,10 @@ class ServiceItem {
         return Icons.electrical_services_outlined;
       case 'car_repair_outlined':
         return Icons.car_repair_outlined;
+      case 'local_gas_station_outlined':
+        return Icons.local_gas_station_outlined;
+      case 'key_outlined':
+        return Icons.key_outlined;
       default:
         return Icons.build_circle_outlined;
     }

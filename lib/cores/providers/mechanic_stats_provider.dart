@@ -52,7 +52,9 @@ class MechanicDashboardStats {
 Future<MechanicDashboardStats> _loadMechanicStats(String userId) async {
   final rows = await supabase
       .from('bookings')
-      .select('id, mechanic_id, status, budget_price, agreed_price, created_at, updated_at, completed_at')
+      .select(
+        'id, mechanic_id, status, budget_price, agreed_price, created_at, updated_at, completed_at',
+      )
       .eq('mechanic_id', userId)
       .order('created_at', ascending: false);
 
@@ -90,9 +92,9 @@ Future<MechanicDashboardStats> _loadMechanicStats(String userId) async {
     return jobs
         .where((row) => row['status']?.toString() == 'completed')
         .where((row) {
-      final date = completionDateOf(row);
-      return date != null && !date.isBefore(start);
-    })
+          final date = completionDateOf(row);
+          return date != null && !date.isBefore(start);
+        })
         .fold<double>(0, (sum, row) => sum + priceOf(row));
   }
 
@@ -100,8 +102,13 @@ Future<MechanicDashboardStats> _loadMechanicStats(String userId) async {
       .where((row) => row['status']?.toString() == 'completed')
       .length;
   final ongoing = jobs
-      .where((row) => const {'accepted', 'on_the_way', 'in_progress'}
-      .contains(row['status']?.toString()))
+      .where(
+        (row) => const {
+          'accepted',
+          'on_the_way',
+          'in_progress',
+        }.contains(row['status']?.toString()),
+      )
       .length;
 
   return MechanicDashboardStats(
@@ -120,24 +127,25 @@ Future<MechanicDashboardStats> _loadMechanicStats(String userId) async {
 /// Performs an immediate database query on app start so earnings load instantly after cold restarts.
 /// Listens to real-time 'bookings' table stream updates to refresh stats when jobs complete or change.
 final mechanicStatsProvider =
-StreamProvider.autoDispose<MechanicDashboardStats>((ref) async* {
-  final userId = ref.watch(
-    authProvider.select((state) => state.user?.id),
-  ) ?? supabase.auth.currentUser?.id;
+    StreamProvider.autoDispose<MechanicDashboardStats>((ref) async* {
+      final userId =
+          ref.watch(authProvider.select((state) => state.user?.id)) ??
+          supabase.auth.currentUser?.id;
 
-  if (userId == null) {
-    yield MechanicDashboardStats.empty;
-    return;
-  }
+      if (userId == null) {
+        yield MechanicDashboardStats.empty;
+        return;
+      }
 
-  yield await _loadMechanicStats(userId);
-
-  try {
-    await for (final _ in supabase
-        .from('bookings')
-        .stream(primaryKey: ['id'])
-        .eq('mechanic_id', userId)) {
       yield await _loadMechanicStats(userId);
-    }
-  } catch (_) {}
-});
+
+      try {
+        await for (final _
+            in supabase
+                .from('bookings')
+                .stream(primaryKey: ['id'])
+                .eq('mechanic_id', userId)) {
+          yield await _loadMechanicStats(userId);
+        }
+      } catch (_) {}
+    });

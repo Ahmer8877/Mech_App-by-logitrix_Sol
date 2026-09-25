@@ -5,6 +5,7 @@ import '../../cores/providers/bookings_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/step_progress.dart';
 import 'payment_method_screen.dart';
+import 'tracking_screen.dart';
 
 class BookingHistoryScreen extends ConsumerStatefulWidget {
   const BookingHistoryScreen({super.key});
@@ -21,7 +22,10 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Booking?', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Cancel Booking?',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
         content: const Text('Are you sure you want to cancel this booking?'),
         actions: [
           TextButton(
@@ -64,7 +68,8 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
     final allBookings = bookingsAsync.valueOrNull ?? const [];
 
     final list = allBookings.where((b) {
-      final isFinished = b.completed || b.status == 'completed' || b.status == 'cancelled';
+      final isFinished =
+          b.completed || b.status == 'completed' || b.status == 'cancelled';
       return _upcoming ? !isFinished : isFinished;
     }).toList();
 
@@ -123,110 +128,216 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                                 const SizedBox(height: 8),
                             itemBuilder: (context, i) {
                               final b = list[i];
-                              final isFinished = b.completed || b.status == 'completed' || b.status == 'cancelled';
+                              final isFinished =
+                                  b.completed ||
+                                  b.status == 'completed' ||
+                                  b.status == 'cancelled';
 
-                              return Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                    color: c.borderStrong.withValues(
-                                      alpha: 0.4,
+                              return InkWell(
+                                onTap: isFinished
+                                    ? null
+                                    : () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                TrackingScreen(bookingId: b.id),
+                                          ),
+                                        );
+                                      },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: c.borderStrong.withValues(
+                                        alpha: 0.4,
+                                      ),
                                     ),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Column(
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              b.service,
-                                              style: const TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            Text(
-                                              '${b.mechanic} · ${b.createdAt == null ? 'Recent' : DateFormat('dd MMM yyyy').format(b.createdAt!.toLocal())}',
-                                              style: TextStyle(
-                                                fontSize: 10,
-                                                color: c.textMuted,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.end,
-                                          children: [
-                                            Text(
-                                              'PKR ${b.price.toStringAsFixed(0)}',
-                                              style: const TextStyle(
-                                                fontSize: 11.5,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 3),
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 7,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: isFinished
-                                                    ? (b.status == 'cancelled'
-                                                        ? c.danger.withValues(alpha: 0.15)
-                                                        : c.success.withValues(alpha: 0.15))
-                                                    : c.surface2,
-                                                borderRadius:
-                                                    BorderRadius.circular(6),
-                                              ),
-                                              child: Text(
-                                                b.status == 'cancelled'
-                                                    ? 'Cancelled'
-                                                    : (isFinished ? 'Completed' : b.status),
-                                                style: TextStyle(
-                                                  fontSize: 8.5,
-                                                  color: b.status == 'cancelled'
-                                                      ? c.danger
-                                                      : (isFinished ? c.success : scheme.primary),
+                                  child: Column(
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                b.service,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
                                                 ),
+                                              ),
+                                              Text(
+                                                '${b.mechanic} · ${b.createdAt == null ? 'Recent' : DateFormat('dd MMM yyyy').format(b.createdAt!.toLocal())}',
+                                                style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: c.textMuted,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.end,
+                                            children: [
+                                              Text(
+                                                'PKR ${b.price.toStringAsFixed(0)}',
+                                                style: const TextStyle(
+                                                  fontSize: 11.5,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 3),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 7,
+                                                      vertical: 2,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: isFinished
+                                                      ? (b.status == 'cancelled'
+                                                            ? c.danger
+                                                                  .withValues(
+                                                                    alpha: 0.15,
+                                                                  )
+                                                            : c.success
+                                                                  .withValues(
+                                                                    alpha: 0.15,
+                                                                  ))
+                                                      : c.surface2,
+                                                  borderRadius:
+                                                      BorderRadius.circular(6),
+                                                ),
+                                                child: Text(
+                                                  b.status == 'cancelled'
+                                                      ? 'Cancelled'
+                                                      : (isFinished
+                                                            ? 'Completed'
+                                                            : b.status),
+                                                  style: TextStyle(
+                                                    fontSize: 8.5,
+                                                    color:
+                                                        b.status == 'cancelled'
+                                                        ? c.danger
+                                                        : (isFinished
+                                                              ? c.success
+                                                              : scheme.primary),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                      if (!isFinished) ...[
+                                        const Divider(height: 16),
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: TextButton.icon(
+                                                onPressed: () =>
+                                                    Navigator.of(context).push(
+                                                      MaterialPageRoute(
+                                                        builder: (_) =>
+                                                            TrackingScreen(
+                                                              bookingId: b.id,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                icon: Icon(
+                                                  Icons.map_outlined,
+                                                  size: 13,
+                                                  color: scheme.primary,
+                                                ),
+                                                label: Text(
+                                                  'Map',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: scheme.primary,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                style: TextButton.styleFrom(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 2,
+                                                      ),
+                                                  minimumSize: Size.zero,
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                ),
+                                              ),
+                                            ),
+                                            TextButton.icon(
+                                              onPressed: () =>
+                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          PaymentMethodScreen(
+                                                            bookingId: b.id,
+                                                          ),
+                                                    ),
+                                                  ),
+                                              icon: const Icon(
+                                                Icons.payment,
+                                                size: 13,
+                                              ),
+                                              label: const Text(
+                                                'Pay',
+                                                style: TextStyle(fontSize: 11),
+                                              ),
+                                              style: TextButton.styleFrom(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                    ),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 4),
+                                            TextButton.icon(
+                                              onPressed: () =>
+                                                  _cancelBooking(context, b.id),
+                                              icon: Icon(
+                                                Icons.cancel_outlined,
+                                                size: 13,
+                                                color: c.danger,
+                                              ),
+                                              label: Text(
+                                                'Cancel',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  color: c.danger,
+                                                ),
+                                              ),
+                                              style: TextButton.styleFrom(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 4,
+                                                    ),
+                                                minimumSize: Size.zero,
+                                                tapTargetSize:
+                                                    MaterialTapTargetSize
+                                                        .shrinkWrap,
                                               ),
                                             ),
                                           ],
                                         ),
                                       ],
-                                    ),
-                                    if (!isFinished) ...[
-                                      const Divider(height: 16),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.end,
-                                        children: [
-                                          TextButton.icon(
-                                            onPressed: () => Navigator.of(context).push(
-                                              MaterialPageRoute(
-                                                builder: (_) => PaymentMethodScreen(bookingId: b.id),
-                                              ),
-                                            ),
-                                            icon: const Icon(Icons.payment, size: 14),
-                                            label: const Text('Pay & Complete', style: TextStyle(fontSize: 11)),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          TextButton.icon(
-                                            onPressed: () => _cancelBooking(context, b.id),
-                                            icon: Icon(Icons.cancel_outlined, size: 14, color: c.danger),
-                                            label: Text('Cancel', style: TextStyle(fontSize: 11, color: c.danger)),
-                                          ),
-                                        ],
-                                      ),
                                     ],
-                                  ],
+                                  ),
                                 ),
                               );
                             },

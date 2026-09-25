@@ -143,8 +143,9 @@ class SelectVehicleScreen extends ConsumerWidget {
                     final vehicles =
                         ref.read(vehiclesProvider).valueOrNull ?? const [];
                     if (vehicles.isNotEmpty) {
+                      // Newly added vehicle is sorted first because of created_at DESC
                       ref.read(selectedVehicleIdProvider.notifier).state =
-                          vehicles.last.id;
+                          vehicles.first.id;
                     }
                   }
                 }

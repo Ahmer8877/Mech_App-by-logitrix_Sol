@@ -23,13 +23,69 @@ class MechanicHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
-  bool _online = true;
   int _navIndex = 0;
 
   Widget _buildHomeContent(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final c = context.colors;
     final userProfile = ref.watch(currentUserProfileProvider);
+
+    if (!userProfile.isVerified) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.hourglass_top_rounded,
+                    size: 36,
+                    color: Colors.orange,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Text(
+                  'Verification Pending',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Your mechanic account is currently pending verification by the admin. Once approved, you will be able to view requests and accept jobs.',
+                  style: TextStyle(fontSize: 12.5, color: c.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                OutlineActionButton(
+                  label: 'Refresh Status',
+                  onPressed: () {
+                    final user = ref.read(authProvider).user;
+                    if (user != null) {
+                      ref.read(authProvider.notifier).fetchUserProfile(user.id);
+                    }
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () => ref.read(authProvider.notifier).logout(),
+                  child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final isOnline = ref.watch(mechanicOnlineStatusProvider);
     final statsAsync = ref.watch(mechanicStatsProvider);
     final stats = statsAsync.valueOrNull ?? MechanicDashboardStats.empty;
 
@@ -50,14 +106,18 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'You are Online',
+                      isOnline ? 'You are Online' : 'You are Offline',
                       style: Theme.of(
                         context,
                       ).textTheme.titleLarge?.copyWith(fontSize: 16),
                     ),
                     Text(
-                      _online ? '● Accepting requests' : '● Offline',
-                      style: TextStyle(fontSize: 11, color: c.textMuted),
+                      isOnline ? '● Accepting requests' : '● Offline',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isOnline ? scheme.primary : Colors.red,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -72,8 +132,10 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                     ),
                     const SizedBox(width: 8),
                     Switch(
-                      value: _online,
-                      onChanged: (v) => setState(() => _online = v),
+                      value: isOnline,
+                      onChanged: (v) => ref
+                          .read(mechanicOnlineStatusProvider.notifier)
+                          .state = v,
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
@@ -194,17 +256,47 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                   'Recent Requests',
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
-                GestureDetector(
-                  onTap: () => setState(() => _navIndex = 1),
-                  child: Text(
-                    'View all',
-                    style: TextStyle(fontSize: 10.5, color: scheme.primary),
+                if (isOnline)
+                  GestureDetector(
+                    onTap: () => setState(() => _navIndex = 1),
+                    child: Text(
+                      'View all',
+                      style: TextStyle(fontSize: 10.5, color: scheme.primary),
+                    ),
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 8),
-            if (openRequestsAsync.isLoading && recentRequest == null)
+            if (!isOnline)
+              AppCard(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                  child: Column(
+                    children: [
+                      const Icon(
+                        Icons.cloud_off_outlined,
+                        size: 32,
+                        color: Colors.orange,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'You are currently offline',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Turn on your online status switch above to start receiving service requests.',
+                        style: TextStyle(fontSize: 11, color: c.textMuted),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (openRequestsAsync.isLoading && recentRequest == null)
               AppCard(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 8),
@@ -278,9 +370,37 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      recentRequest['pickup_address']?.toString() ?? 'Location unavailable',
+                      recentRequest['pickup_address']?.toString() ??
+                          'Location unavailable',
                       style: TextStyle(fontSize: 9.5, color: c.textSecondary),
                     ),
+                    if (recentRequest['distance_km'] != null) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.near_me,
+                            size: 11,
+                            color: recentRequest['is_within_range'] == false
+                                ? Colors.orange
+                                : scheme.primary,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            recentRequest['is_within_range'] == false
+                                ? '${recentRequest['distance_km']} km away (Out of 5 km range)'
+                                : '${recentRequest['distance_km']} km away (Within 5 km range)',
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              color: recentRequest['is_within_range'] == false
+                                  ? Colors.orange
+                                  : scheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -293,7 +413,8 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => RequestDetailsScreen(bookingId: id),
+                                    builder: (_) =>
+                                        RequestDetailsScreen(bookingId: id),
                                   ),
                                 );
                               }
@@ -310,7 +431,8 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => SendOfferScreen(bookingId: id),
+                                    builder: (_) =>
+                                        SendOfferScreen(bookingId: id),
                                   ),
                                 );
                               }

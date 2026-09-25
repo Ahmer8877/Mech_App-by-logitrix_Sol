@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/chat_message_model.dart';
 
@@ -16,6 +17,9 @@ class ChatRepository {
       .stream(primaryKey: ['id'])
       .eq('booking_id', bookingId)
       .order('created_at')
+      .handleError((e) {
+        debugPrint('Chat realtime stream error: $e');
+      })
       .map((rows) => rows.map((e) => ChatMessageModel.fromMap(e)).toList());
 
   /// Inserts a new chat message into the Supabase 'chat_messages' table.

@@ -65,6 +65,9 @@ class LiveLocationRepository {
         .from('booking_locations')
         .stream(primaryKey: ['booking_id'])
         .eq('booking_id', bookingId)
+        .handleError((e) {
+          debugPrint('Live location stream error: $e');
+        })
         .map(
           (rows) => rows.isEmpty
               ? null

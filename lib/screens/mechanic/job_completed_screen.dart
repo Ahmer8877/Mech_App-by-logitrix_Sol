@@ -123,15 +123,16 @@ class _JobCompletedScreenState extends ConsumerState<JobCompletedScreen>
                       const SizedBox(height: 18),
                       Text(
                         'Job Completed! 🎉',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
+                        style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Customer confirmed payment & rated your service',
-                        style: TextStyle(fontSize: 11.5, color: context.colors.textMuted),
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: context.colors.textMuted,
+                        ),
                       ),
                       const SizedBox(height: 24),
                       Container(
@@ -139,7 +140,11 @@ class _JobCompletedScreenState extends ConsumerState<JobCompletedScreen>
                         decoration: BoxDecoration(
                           color: scheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: context.colors.borderStrong.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: context.colors.borderStrong.withValues(
+                              alpha: 0.3,
+                            ),
+                          ),
                         ),
                         child: Column(
                           children: [
@@ -149,7 +154,10 @@ class _JobCompletedScreenState extends ConsumerState<JobCompletedScreen>
                                 const Text('Payment Earned:'),
                                 Text(
                                   'PKR ${amount.toStringAsFixed(0)}',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
                                 ),
                               ],
                             ),
@@ -160,7 +168,9 @@ class _JobCompletedScreenState extends ConsumerState<JobCompletedScreen>
                                 const Text('Payment Method:'),
                                 Text(
                                   method,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ],
                             ),
@@ -219,13 +229,15 @@ class _ConfettiPainter extends CustomPainter {
   final List<_ConfettiParticle> particles;
 
   _ConfettiPainter({required this.animation, required this.particles})
-      : super(repaint: animation);
+    : super(repaint: animation);
 
   @override
   void paint(Canvas canvas, Size size) {
     final progress = animation.value;
     for (final p in particles) {
-      final dx = (p.x * size.width + math.sin(progress * 6 + p.seed) * p.drift) % size.width;
+      final dx =
+          (p.x * size.width + math.sin(progress * 6 + p.seed) * p.drift) %
+          size.width;
       final dy = ((p.y + progress * p.speed) % 1.0) * size.height;
       final opacity = (1.0 - (dy / size.height)).clamp(0.0, 1.0);
 
@@ -240,7 +252,11 @@ class _ConfettiPainter extends CustomPainter {
         canvas.drawCircle(Offset.zero, p.size / 2, paint);
       } else {
         canvas.drawRect(
-          Rect.fromCenter(center: Offset.zero, width: p.size * 1.8, height: p.size * 0.9),
+          Rect.fromCenter(
+            center: Offset.zero,
+            width: p.size * 1.8,
+            height: p.size * 0.9,
+          ),
           paint,
         );
       }

@@ -211,6 +211,66 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
     return LatLng(lat, lng);
   }
 
+  Future<void> _cancelJob(BuildContext context, WidgetRef ref) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Cancel Job?'),
+        content: const Text(
+          'Are you sure you want to cancel this job? The customer will be notified in real-time.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Yes, Cancel'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    final currentContext = context;
+
+    try {
+      await _positionSubscription?.cancel();
+      _positionSubscription = null;
+
+      await ref.read(bookingRepositoryProvider).cancel(widget.bookingId);
+      await ref
+          .read(liveLocationRepositoryProvider)
+          .clearMechanicLocation(widget.bookingId);
+
+      ref.invalidate(mechanicBookingsProvider);
+      ref.invalidate(openRequestsProvider);
+
+      if (!mounted || !currentContext.mounted) return;
+
+      ScaffoldMessenger.of(currentContext).showSnackBar(
+        const SnackBar(
+          content: Text('Job cancelled. Customer notified.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+
+      Navigator.pushAndRemoveUntil(
+        currentContext,
+        MaterialPageRoute(builder: (_) => const MechanicHomeScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      if (!mounted || !currentContext.mounted) return;
+      ScaffoldMessenger.of(
+        currentContext,
+      ).showSnackBar(SnackBar(content: Text('Failed to cancel job: $e')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bookingAsync = ref.watch(bookingDetailsProvider(widget.bookingId));
@@ -256,7 +316,8 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
               Navigator.pushAndRemoveUntil(
                 currentContext,
                 MaterialPageRoute(
-                  builder: (_) => JobCompletedScreen(bookingId: widget.bookingId),
+                  builder: (_) =>
+                      JobCompletedScreen(bookingId: widget.bookingId),
                 ),
                 (route) => false,
               );
@@ -279,9 +340,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
 
               Navigator.pushAndRemoveUntil(
                 currentContext,
-                MaterialPageRoute(
-                  builder: (_) => const MechanicHomeScreen(),
-                ),
+                MaterialPageRoute(builder: (_) => const MechanicHomeScreen()),
                 (route) => false,
               );
             });
@@ -370,11 +429,13 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
+                const SizedBox(height: 8),
                 Row(
                   children: [
                     Expanded(
                       child: OutlineActionButton(
-                        label: 'Call Customer',
+                        label: 'Call',
+                        icon: const Icon(Icons.phone_outlined, size: 14),
                         onPressed: customerId.isEmpty
                             ? null
                             : () => Navigator.push(
@@ -388,7 +449,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                               ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: OutlineActionButton(
                         label: unreadChat > 0 ? 'Chat ($unreadChat)' : 'Chat',
@@ -414,16 +475,29 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                             : null,
                         onPressed: customerId.isEmpty
                             ? null
-                            : () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => ChatScreen(
-                                    bookingId: widget.bookingId,
-                                    otherUserId: customerId,
-                                    otherName: name,
-                                  ),
-                                ),
-                              ),
+                            : () =>
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ChatScreen(
+                                        bookingId: widget.bookingId,
+                                        otherUserId: customerId,
+                                        otherName: name,
+                                      ),
+                                    ),
+                                  ).then((_) {
+                                    ref.invalidate(
+                                      chatMessagesProvider(widget.bookingId),
+                                    );
+                                  }),
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: OutlineActionButton(
+                        label: 'Cancel',
+                        isDanger: true,
+                        onPressed: () => _cancelJob(context, ref),
                       ),
                     ),
                   ],
@@ -432,10 +506,14 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -452,7 +530,10 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                       const Expanded(
                         child: Text(
                           'Waiting for customer payment & job completion...',
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ),
                     ],

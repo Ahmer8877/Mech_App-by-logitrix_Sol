@@ -28,16 +28,25 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _markRead();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.bookingId.isNotEmpty) {
+        final activeUserId = ref.read(authProvider).user?.id;
+        if (activeUserId != null) {
+          ref.read(activeChatUserBookingKeyProvider.notifier).state =
+              '$activeUserId:${widget.bookingId}';
+        }
+        _markRead();
+      }
+    });
   }
 
   void _markRead() {
+    if (!mounted) return;
     final activeUserId = ref.read(authProvider).user?.id;
     if (activeUserId != null && widget.bookingId.isNotEmpty) {
-      ref.read(chatRepositoryProvider).markRead(
-            bookingId: widget.bookingId,
-            activeUserId: activeUserId,
-          );
+      ref
+          .read(chatRepositoryProvider)
+          .markRead(bookingId: widget.bookingId, activeUserId: activeUserId);
     }
   }
 
@@ -53,7 +62,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     setState(() => _sending = true);
     try {
-      await ref.read(chatRepositoryProvider).send(
+      await ref
+          .read(chatRepositoryProvider)
+          .send(
             bookingId: widget.bookingId,
             senderId: userId,
             receiverId: widget.otherUserId,
@@ -73,6 +84,27 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   }
 
   @override
+  void deactivate() {
+    if (widget.bookingId.isNotEmpty) {
+      final activeUserId = ref.read(authProvider).user?.id;
+      final chatRepo = ref.read(chatRepositoryProvider);
+      final keyNotifier = ref.read(activeChatUserBookingKeyProvider.notifier);
+
+      Future.microtask(() {
+        keyNotifier.state = null;
+      });
+
+      if (activeUserId != null) {
+        chatRepo.markRead(
+          bookingId: widget.bookingId,
+          activeUserId: activeUserId,
+        );
+      }
+    }
+    super.deactivate();
+  }
+
+  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -89,9 +121,6 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
     final messages = ref.watch(chatMessagesProvider(widget.bookingId));
     final currentUserId = ref.watch(authProvider).user?.id;
-
-    // Auto mark read on data arrival
-    _markRead();
 
     return Scaffold(
       appBar: AppBar(title: Text(widget.otherName)),

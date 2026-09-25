@@ -52,13 +52,17 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
       if (reviewsResponse.isNotEmpty) {
         final totalReviews = reviewsResponse.length;
         final sumRating = reviewsResponse.fold<double>(
-            0.0, (sum, item) => sum + ((item['rating'] as num?)?.toDouble() ?? 5.0));
-        final avgRating = double.parse((sumRating / totalReviews).toStringAsFixed(1));
+          0.0,
+          (sum, item) => sum + ((item['rating'] as num?)?.toDouble() ?? 5.0),
+        );
+        final avgRating = double.parse(
+          (sumRating / totalReviews).toStringAsFixed(1),
+        );
 
-        await supabase.from('profiles').update({
-          'rating': avgRating,
-          'total_jobs': totalReviews,
-        }).eq('id', mid);
+        await supabase
+            .from('profiles')
+            .update({'rating': avgRating, 'total_jobs': totalReviews})
+            .eq('id', mid);
       }
 
       // 3. Mark booking as COMPLETED and PAID
@@ -131,7 +135,9 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
               ),
               const Spacer(),
               AccentButton(
-                label: saving ? 'Submitting & Completing...' : 'Submit Review & Complete',
+                label: saving
+                    ? 'Submitting & Completing...'
+                    : 'Submit Review & Complete',
                 onPressed: saving ? null : () => submit(x),
               ),
             ],

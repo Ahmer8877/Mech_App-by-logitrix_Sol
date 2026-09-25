@@ -22,18 +22,11 @@ class NotificationIconButton extends ConsumerWidget {
       child: Container(
         width: 38,
         height: 38,
-        decoration: BoxDecoration(
-          color: c.surface2,
-          shape: BoxShape.circle,
-        ),
+        decoration: BoxDecoration(color: c.surface2, shape: BoxShape.circle),
         child: Stack(
           alignment: Alignment.center,
           children: [
-            Icon(
-              Icons.notifications_outlined,
-              size: 20,
-              color: scheme.primary,
-            ),
+            Icon(Icons.notifications_outlined, size: 20, color: scheme.primary),
             if (unreadCount > 0)
               Positioned(
                 right: 2,

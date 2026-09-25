@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/bookings_provider.dart';
 import '../../cores/providers/offers_provider.dart';
+import '../../cores/repositories/live_location_repository.dart';
 import '../../widgets/app_buttons.dart';
 
 class SendOfferScreen extends ConsumerStatefulWidget {
@@ -31,6 +33,38 @@ class _SendOfferScreenState extends ConsumerState<SendOfferScreen> {
     if (uid == null || p == null || p <= 0) return;
     setState(() => saving = true);
     try {
+      final rawBooking = await ref
+          .read(bookingRepositoryProvider)
+          .getRawBooking(widget.bookingId);
+      final reqLat = (rawBooking?['latitude'] as num?)?.toDouble();
+      final reqLng = (rawBooking?['longitude'] as num?)?.toDouble();
+
+      if (reqLat != null && reqLng != null) {
+        final pos = await LiveLocationRepository.getCurrentPosition();
+        if (pos != null) {
+          final distMeters = Geolocator.distanceBetween(
+            pos.latitude,
+            pos.longitude,
+            reqLat,
+            reqLng,
+          );
+          if (distMeters > 5000.0) {
+            final distKm = (distMeters / 1000.0).toStringAsFixed(1);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Aap customer se $distKm km door hain. Offer sirf 5 km range ke andar bhej sakte hain.',
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
+            return;
+          }
+        }
+      }
+
       await ref
           .read(offerRepositoryProvider)
           .sendOffer(

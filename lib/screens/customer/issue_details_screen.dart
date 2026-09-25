@@ -95,9 +95,9 @@ class _IssueDetailsScreenState extends ConsumerState<IssueDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to upload photos: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to upload photos: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

@@ -5,85 +5,68 @@ import '../repositories/notification_repository.dart';
 import 'auth_provider.dart';
 
 /// Provider for accessing the NotificationRepository instance.
-/// Connects directly to Supabase client to fetch, update, and delete notifications.
-/// Used throughout the app by NotificationNotifier and notification widgets.
 final notificationRepositoryProvider = Provider<NotificationRepository>(
   (ref) => NotificationRepository(supabase),
 );
 
-/// AsyncNotifier managing the active user's notifications state.
-/// Automatically re-fetches notifications whenever the authenticated user ID changes.
-/// Exposes actions to mark all notifications as read, delete single, or clear all notifications.
-class NotificationsNotifier extends AsyncNotifier<List<NotificationModel>> {
-  NotificationRepository get _repository =>
-      ref.read(notificationRepositoryProvider);
+/// Real-time stream provider for the active user's notifications.
+final notificationsStreamProvider =
+    StreamProvider.family<List<NotificationModel>, String>((ref, userId) {
+      if (userId.isEmpty) return Stream.value(const []);
+      return ref.read(notificationRepositoryProvider).watchForUser(userId);
+    });
 
-  @override
-  Future<List<NotificationModel>> build() async {
-    final userId = ref.watch(authProvider.select((state) => state.user?.id));
+/// Reactive provider supplying the real-time AsyncValue notification list for the active user.
+final notificationsProvider = Provider<AsyncValue<List<NotificationModel>>>((
+  ref,
+) {
+  final userId =
+      ref.watch(authProvider.select((state) => state.user?.id)) ?? '';
+  if (userId.isEmpty) return const AsyncValue.data([]);
+  return ref.watch(notificationsStreamProvider(userId));
+});
 
-    if (userId == null) return const [];
-
-    return _repository.getForUser(userId);
-  }
-
-  /// Marks all unread notifications for the active user as read in Supabase.
-  Future<void> markAllAsRead() async {
-    final userId = ref.read(authProvider).user?.id;
-
-    if (userId == null) return;
-
-    await _repository.markAllRead(userId);
-
-    ref.invalidateSelf();
-    await future;
-  }
-
-  /// Deletes a single notification by ID for the active user from Supabase.
-  Future<void> deleteNotification(String notificationId) async {
-    final userId = ref.read(authProvider).user?.id;
-
-    if (userId == null) return;
-
-    final currentList = state.valueOrNull ?? [];
-    state = AsyncValue.data(
-      currentList.where((n) => n.id != notificationId).toList(),
-    );
-
-    try {
-      await _repository.deleteSingle(notificationId, userId);
-    } catch (_) {
-      ref.invalidateSelf();
-    }
-  }
-
-  /// Deletes all notification rows for the active user from Supabase.
-  Future<void> clearAll() async {
-    final userId = ref.read(authProvider).user?.id;
-
-    if (userId == null) return;
-
-    state = const AsyncValue.data([]);
-
-    try {
-      await _repository.clearAll(userId);
-    } catch (_) {
-      ref.invalidateSelf();
-    }
-  }
-}
-
-/// Provider supplying the real-time list of notification models for the active user.
-final notificationsProvider =
-    AsyncNotifierProvider<NotificationsNotifier, List<NotificationModel>>(
-      NotificationsNotifier.new,
-    );
-
-/// Provider computing the unread notification count for the active user.
+/// Provider computing the unread notification count for the active user in real-time.
 final unreadNotificationsCountProvider = Provider<int>((ref) {
   final notifications =
       ref.watch(notificationsProvider).valueOrNull ??
       const <NotificationModel>[];
 
   return notifications.where((n) => n.unread).length;
+});
+
+/// Controller managing notification mutation actions (mark read, delete, clear).
+class NotificationsController {
+  final NotificationRepository _repository;
+  final Ref _ref;
+
+  NotificationsController(this._repository, this._ref);
+
+  /// Marks all unread notifications for the active user as read in Supabase.
+  Future<void> markAllAsRead() async {
+    final userId = _ref.read(authProvider).user?.id;
+    if (userId == null) return;
+    await _repository.markAllRead(userId);
+    _ref.invalidate(notificationsStreamProvider(userId));
+  }
+
+  /// Deletes a single notification by ID for the active user from Supabase.
+  Future<void> deleteNotification(String notificationId) async {
+    final userId = _ref.read(authProvider).user?.id;
+    if (userId == null) return;
+    await _repository.deleteSingle(notificationId, userId);
+    _ref.invalidate(notificationsStreamProvider(userId));
+  }
+
+  /// Deletes all notification rows for the active user from Supabase.
+  Future<void> clearAll() async {
+    final userId = _ref.read(authProvider).user?.id;
+    if (userId == null) return;
+    await _repository.clearAll(userId);
+    _ref.invalidate(notificationsStreamProvider(userId));
+  }
+}
+
+final notificationsControllerProvider = Provider((ref) {
+  return NotificationsController(ref.read(notificationRepositoryProvider), ref);
 });
