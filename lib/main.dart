@@ -98,3 +98,4 @@ class MechXApp extends ConsumerWidget {
     );
   }
 }
+// bookings_location,chat_messages,bookings,notifications,offers,reviews =>ye sub tables ke data ko clean krne liye mujy sql query do safely del krna hai

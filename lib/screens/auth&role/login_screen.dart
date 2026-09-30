@@ -6,6 +6,7 @@ import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../customer/customer_home_screen.dart';
 import '../mechanic/mechanic_home_screen.dart';
+import '../mechanic/mechanic_verification_screen.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 
@@ -106,6 +107,42 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
   }
 
+  Future<void> _finishSocialLoginNavigation() async {
+    // OAuth callbacks return asynchronously. Wait briefly for AuthNotifier to
+    // receive the session/profile before deciding which portal to open.
+    for (var i = 0; i < 30; i++) {
+      if (!mounted) return;
+      final authState = ref.read(authProvider);
+      final profile = authState.profile;
+      if (authState.user != null && profile != null) {
+        final isMechanic = profile.role == UserRole.mechanic;
+        final isApproved =
+            profile.isVerified || profile.verificationStatus == 'approved';
+
+        if (!mounted) return;
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (_) => isMechanic && !isApproved
+                ? const MechanicVerificationScreen()
+                : (isMechanic
+                    ? const MechanicHomeScreen()
+                    : const CustomerHomeScreen()),
+          ),
+          (route) => false,
+        );
+        return;
+      }
+      await Future.delayed(const Duration(milliseconds: 500));
+    }
+
+    if (!mounted) return;
+    final message = ref.read(authProvider).errorMessage ??
+        'Sign-in completed, but your profile is still loading. Please try again.';
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   void _loginWithGoogle() async {
     final messenger = ScaffoldMessenger.of(context);
     final errorColor = Theme.of(context).colorScheme.error;
@@ -116,26 +153,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (!mounted) return;
 
-    final authState = ref.read(authProvider);
-
-    if (success && authState.user != null) {
-      final userProfile = ref.read(currentUserProfileProvider);
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => userProfile.role == UserRole.customer
-              ? const CustomerHomeScreen()
-              : const MechanicHomeScreen(),
-        ),
-        (route) => false,
-      );
-    } else if (authState.errorMessage != null) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(authState.errorMessage!),
-          backgroundColor: errorColor,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+    if (success) {
+      await _finishSocialLoginNavigation();
+    } else {
+      final message = ref.read(authProvider).errorMessage;
+      if (message != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: errorColor),
+        );
+      }
     }
   }
 
@@ -149,26 +175,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
     if (!mounted) return;
 
-    final authState = ref.read(authProvider);
-
-    if (success && authState.user != null) {
-      final userProfile = ref.read(currentUserProfileProvider);
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => userProfile.role == UserRole.customer
-              ? const CustomerHomeScreen()
-              : const MechanicHomeScreen(),
-        ),
-        (route) => false,
-      );
-    } else if (authState.errorMessage != null) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(authState.errorMessage!),
-          backgroundColor: errorColor,
-          duration: const Duration(seconds: 3),
-        ),
-      );
+    if (success) {
+      await _finishSocialLoginNavigation();
+    } else {
+      final message = ref.read(authProvider).errorMessage;
+      if (message != null) {
+        messenger.showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: errorColor),
+        );
+      }
     }
   }
 

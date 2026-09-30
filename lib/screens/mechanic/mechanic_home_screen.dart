@@ -11,6 +11,7 @@ import '../notification/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import 'earnings_screen.dart';
 import 'mechanic_bookings_screen.dart';
+import 'mechanic_verification_screen.dart';
 import 'new_request_screen.dart';
 import 'request_details_screen.dart';
 import 'send_offer_screen.dart';
@@ -24,66 +25,21 @@ class MechanicHomeScreen extends ConsumerStatefulWidget {
 
 class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
   int _navIndex = 0;
+  bool _hasContinuedToDashboard = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = ref.read(currentUserProfileProvider);
+    if (profile.isVerified || profile.verificationStatus == 'approved') {
+      _hasContinuedToDashboard = true;
+    }
+  }
 
   Widget _buildHomeContent(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final c = context.colors;
     final userProfile = ref.watch(currentUserProfileProvider);
-
-    if (!userProfile.isVerified) {
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.hourglass_top_rounded,
-                    size: 36,
-                    color: Colors.orange,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Verification Pending',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  'Your mechanic account is currently pending verification by the admin. Once approved, you will be able to view requests and accept jobs.',
-                  style: TextStyle(fontSize: 12.5, color: c.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                OutlineActionButton(
-                  label: 'Refresh Status',
-                  onPressed: () {
-                    final user = ref.read(authProvider).user;
-                    if (user != null) {
-                      ref.read(authProvider.notifier).fetchUserProfile(user.id);
-                    }
-                  },
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () => ref.read(authProvider.notifier).logout(),
-                  child: const Text('Logout', style: TextStyle(color: Colors.red)),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
 
     final isOnline = ref.watch(mechanicOnlineStatusProvider);
     final statsAsync = ref.watch(mechanicStatsProvider);
@@ -452,6 +408,21 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final userProfile = ref.watch(currentUserProfileProvider);
+
+    // Show verification screen if mechanic is unverified OR has not tapped 'Continue to Dashboard' yet
+    final verificationApproved =
+        userProfile.isVerified || userProfile.verificationStatus == 'approved';
+    if (!verificationApproved || !_hasContinuedToDashboard) {
+      return MechanicVerificationScreen(
+        onContinueToDashboard: () {
+          setState(() {
+            _hasContinuedToDashboard = true;
+          });
+        },
+      );
+    }
+
     final List<Widget> pages = [
       RepaintBoundary(child: _buildHomeContent(context, ref)),
       const RepaintBoundary(child: NewRequestScreen()),

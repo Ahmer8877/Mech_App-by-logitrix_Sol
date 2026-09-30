@@ -423,6 +423,7 @@ AS $$
     FROM public.profiles
     WHERE id = auth.uid()
       AND role = 'mechanic'
+      AND is_verified = true
   );
 $$;
 
@@ -436,16 +437,33 @@ RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $
   );
 $$;
 
--- Profiles: users can read/update their own private profile.
+-- Helper to check if active user is admin
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+-- Profiles: expose only the signed-in user's profile, booking participants,
+-- or all profiles to admins. Do not expose private CNIC/phone/document fields
+-- to every authenticated customer/mechanic.
+DROP POLICY IF EXISTS "Users read own profile" ON public.profiles;
 CREATE POLICY "Users read own profile" ON public.profiles
-  FOR SELECT USING (auth.uid() = id);
+  FOR SELECT USING (
+    public.is_admin()
+    OR auth.uid() = id
+    OR public.can_read_booking_profile(id)
+  );
+DROP POLICY IF EXISTS "Users update own profile" ON public.profiles;
 CREATE POLICY "Users update own profile" ON public.profiles
-  FOR UPDATE USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
+  FOR UPDATE USING (public.is_admin() OR auth.uid() = id)
+  WITH CHECK (public.is_admin() OR auth.uid() = id);
+DROP POLICY IF EXISTS "Users insert own profile" ON public.profiles;
+CREATE POLICY "Users insert own profile" ON public.profiles
+  FOR INSERT WITH CHECK (public.is_admin() OR auth.uid() = id);
 
 DROP POLICY IF EXISTS "Users read booking participant profiles" ON public.profiles;
-CREATE POLICY "Users read booking participant profiles" ON public.profiles
-  FOR SELECT USING (public.can_read_booking_profile(id));
 
 -- Vehicles: owner-only CRUD.
 CREATE POLICY "Users read own vehicles" ON public.vehicles FOR SELECT USING (auth.uid() = owner_id);
@@ -457,9 +475,10 @@ CREATE POLICY "Users delete own vehicles" ON public.vehicles FOR DELETE USING (a
 CREATE POLICY "Anyone read active services" ON public.services FOR SELECT USING (is_active = true);
 
 -- Bookings: customer sees own bookings; assigned mechanic sees assigned jobs;
--- unassigned pending requests are visible only to verified mechanics.
+-- unassigned pending requests are visible only to verified mechanics; admin sees all.
 CREATE POLICY "Users read relevant bookings" ON public.bookings FOR SELECT USING (
-  auth.uid() = customer_id
+  public.is_admin()
+  OR auth.uid() = customer_id
   OR auth.uid() = mechanic_id
   OR (mechanic_id IS NULL AND public.is_verified_mechanic())
 );
@@ -775,3 +794,197 @@ WHERE p.role = 'mechanic'
 UPDATE public.profiles
 SET rating = 0
 WHERE role <> 'mechanic';
+
+-- =====================================================================
+-- MECHANIC VERIFICATION DOCUMENTS SCHEMA & REALTIME
+-- =====================================================================
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cnic TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cnic_number TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cnic_front_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cnic_back_url TEXT;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS workshop_tools_urls JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS verification_status TEXT DEFAULT 'pending';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS verification_notes TEXT;
+
+ALTER TABLE public.profiles REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'profiles'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+END $$;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('mechanic_documents', 'mechanic_documents', true)
+ON CONFLICT (id) DO UPDATE SET public = true;
+
+DROP POLICY IF EXISTS "Public Read Mechanic Documents" ON storage.objects;
+CREATE POLICY "Public Read Mechanic Documents" ON storage.objects
+  FOR SELECT USING (bucket_id = 'mechanic_documents');
+
+DROP POLICY IF EXISTS "Users Insert Mechanic Documents" ON storage.objects;
+CREATE POLICY "Users Insert Mechanic Documents" ON storage.objects
+  FOR INSERT WITH CHECK (
+    bucket_id = 'mechanic_documents'
+    AND auth.uid() IS NOT NULL
+  );
+
+-- ---------------------------------------------------------------------
+-- CONTROLLED SOCIAL MECHANIC ROLE PREPARATION
+-- A newly-created Google/Facebook account starts as customer because the
+-- auth trigger creates the profile before the client callback completes.
+-- This function is the only client-callable path that may promote that
+-- brand-new account to mechanic. Existing accounts are never converted.
+-- ---------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.prepare_new_social_mechanic()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_user_created_at TIMESTAMPTZ;
+  v_role TEXT;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT created_at INTO v_user_created_at
+  FROM auth.users
+  WHERE id = auth.uid();
+
+  IF v_user_created_at IS NULL
+     OR v_user_created_at < NOW() - INTERVAL '5 minutes' THEN
+    RETURN FALSE;
+  END IF;
+
+  SELECT role INTO v_role
+  FROM public.profiles
+  WHERE id = auth.uid();
+
+  -- Only the automatic customer profile of a genuinely new account may be
+  -- promoted. Approved/rejected/pending existing mechanics are untouched.
+  IF v_role IS NULL THEN
+    INSERT INTO public.profiles (id, full_name, email, role, is_verified, verification_status)
+    SELECT id,
+           COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', 'User'),
+           email,
+           'mechanic',
+           FALSE,
+           'pending'
+    FROM auth.users
+    WHERE id = auth.uid()
+    ON CONFLICT (id) DO NOTHING;
+    RETURN TRUE;
+  END IF;
+
+  IF v_role = 'customer' THEN
+    PERFORM set_config('app.allow_server_profile_fields', 'on', true);
+    UPDATE public.profiles
+    SET role = 'mechanic',
+        is_verified = FALSE,
+        verification_status = 'pending',
+        updated_at = NOW()
+    WHERE id = auth.uid();
+    RETURN TRUE;
+  END IF;
+
+  RETURN FALSE;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.prepare_new_social_mechanic() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.prepare_new_social_mechanic() TO authenticated;
+
+-- MechX SAFE DB FIXES
+-- Run this entire script once in Supabase SQL Editor.
+-- This migration does NOT change Apple Auth or Android/Gradle configuration.
+
+-- 1) Verified mechanic helper: only approved mechanics are considered verified.
+CREATE OR REPLACE FUNCTION public.is_verified_mechanic()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'mechanic'
+      AND is_verified = true
+      AND verification_status = 'approved'
+  );
+$$;
+
+-- 2) Keep profile reads private except for admins and booking participants.
+DROP POLICY IF EXISTS "Users read own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users read booking participant profiles" ON public.profiles;
+CREATE POLICY "Users read own profile" ON public.profiles
+  FOR SELECT USING (
+    public.is_admin()
+    OR auth.uid() = id
+    OR public.can_read_booking_profile(id)
+  );
+
+-- 3) Controlled role preparation for a brand-new social mechanic account.
+CREATE OR REPLACE FUNCTION public.prepare_new_social_mechanic()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, auth
+AS $$
+DECLARE
+  v_user_created_at TIMESTAMPTZ;
+  v_role TEXT;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'Not authenticated';
+  END IF;
+
+  SELECT created_at INTO v_user_created_at
+  FROM auth.users
+  WHERE id = auth.uid();
+
+  IF v_user_created_at IS NULL
+     OR v_user_created_at < NOW() - INTERVAL '5 minutes' THEN
+    RETURN FALSE;
+  END IF;
+
+  SELECT role INTO v_role FROM public.profiles WHERE id = auth.uid();
+
+  IF v_role IS NULL THEN
+    INSERT INTO public.profiles (id, full_name, email, role, is_verified, verification_status)
+    SELECT id,
+           COALESCE(raw_user_meta_data->>'full_name', raw_user_meta_data->>'name', 'User'),
+           email,
+           'mechanic', FALSE, 'pending'
+    FROM auth.users WHERE id = auth.uid()
+    ON CONFLICT (id) DO NOTHING;
+    RETURN TRUE;
+  END IF;
+
+  IF v_role = 'customer' THEN
+    PERFORM set_config('app.allow_server_profile_fields', 'on', true);
+    UPDATE public.profiles
+    SET role = 'mechanic', is_verified = FALSE,
+        verification_status = 'pending', updated_at = NOW()
+    WHERE id = auth.uid();
+    RETURN TRUE;
+  END IF;
+
+  RETURN FALSE;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.prepare_new_social_mechanic() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.prepare_new_social_mechanic() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_verified_mechanic() TO authenticated;
