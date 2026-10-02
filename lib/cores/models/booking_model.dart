@@ -2,6 +2,7 @@ class Booking {
   final String id;
   final String service;
   final String mechanic;
+  final double mechanicRating;
   final String customer;
   final String address;
   final DateTime? createdAt;
@@ -13,6 +14,7 @@ class Booking {
     required this.id,
     required this.service,
     required this.mechanic,
+    this.mechanicRating = 0.0,
     this.customer = 'Customer',
     this.address = '',
     this.createdAt,
@@ -20,6 +22,15 @@ class Booking {
     this.status = 'pending',
     this.completed = false,
   });
+
+  static double _parseRating(dynamic val) {
+    if (val == null) return 0.0;
+    if (val is num) return val.toDouble();
+    if (val is String) {
+      return double.tryParse(val) ?? 0.0;
+    }
+    return 0.0;
+  }
 
   factory Booking.fromMap(Map<String, dynamic> map) {
     final status = map['status']?.toString() ?? 'pending';
@@ -36,6 +47,9 @@ class Booking {
       mechanic: mechanicData is Map
           ? mechanicData['full_name']?.toString() ?? 'Not assigned'
           : 'Not assigned',
+      mechanicRating: mechanicData is Map
+          ? _parseRating(mechanicData['rating'])
+          : 0.0,
       customer: customerData is Map
           ? customerData['full_name']?.toString() ?? 'Customer'
           : 'Customer',

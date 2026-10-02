@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -215,19 +216,19 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Cancel Job?'),
-        content: const Text(
+        title: const AppText('Cancel Job?'),
+        content: const AppText(
           'Are you sure you want to cancel this job? The customer will be notified in real-time.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('No'),
+            child: const AppText('No'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Yes, Cancel'),
+            child: const AppText('Yes, Cancel'),
           ),
         ],
       ),
@@ -253,7 +254,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
 
       ScaffoldMessenger.of(currentContext).showSnackBar(
         const SnackBar(
-          content: Text('Job cancelled. Customer notified.'),
+          content: AppText('Job cancelled. Customer notified.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -267,7 +268,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
       if (!mounted || !currentContext.mounted) return;
       ScaffoldMessenger.of(
         currentContext,
-      ).showSnackBar(SnackBar(content: Text('Failed to cancel job: $e')));
+      ).showSnackBar(SnackBar(content: AppText('Failed to cancel job: $e')));
     }
   }
 
@@ -279,10 +280,10 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
         .valueOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('On The Way')),
+      appBar: AppBar(title: const AppText('On The Way')),
       body: bookingAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('$error')),
+        error: (error, _) => Center(child: AppText('$error')),
         data: (booking) {
           final customer = booking?['customer'] as Map?;
           final name = customer?['full_name']?.toString() ?? 'Customer';
@@ -332,7 +333,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
 
               ScaffoldMessenger.of(currentContext).showSnackBar(
                 const SnackBar(
-                  content: Text('Booking was cancelled by the customer.'),
+                  content: AppText('Booking was cancelled by the customer.'),
                   backgroundColor: Colors.red,
                   duration: Duration(seconds: 4),
                 ),
@@ -362,6 +363,17 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                   child: LiveGoogleMap(
                     customerLocation: liveCustomer,
                     mechanicLocation: _myLocation,
+                    currentLocation: _myLocation == null
+                        ? null
+                        : LatLng(
+                            _myLocation!.latitude!,
+                            _myLocation!.longitude!,
+                          ),
+                    locationServiceEnabled: !_locationServiceOff,
+                    locationPermissionDenied:
+                        _locationPermissionDenied ||
+                        _locationPermissionDeniedForever,
+                    onEnableLocation: _openLocationSettings,
                   ),
                 ),
                 if (_locationServiceOff ||
@@ -385,7 +397,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                           const Icon(Icons.location_off_outlined),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
+                            child: AppText(
                               _locationPermissionDeniedForever
                                   ? 'Location permission is permanently denied. Enable it in app settings.'
                                   : _locationPermissionDenied
@@ -396,7 +408,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                           ),
                           TextButton(
                             onPressed: _openLocationSettings,
-                            child: Text(
+                            child: AppText(
                               _locationPermissionDeniedForever
                                   ? 'Settings'
                                   : 'Turn On',
@@ -409,12 +421,12 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                 else if (_starting)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('Starting live GPS tracking...'),
+                    child: AppText('Starting live GPS tracking...'),
                   )
                 else if (_locationError != null)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
+                    child: AppText(
                       _locationError!,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -424,7 +436,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                       ),
                     ),
                   ),
-                Text(
+                AppText(
                   booking?['pickup_address']?.toString() ?? '',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -463,7 +475,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                                   color: Colors.redAccent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Text(
+                                child: AppText(
                                   '$unreadChat',
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -528,7 +540,7 @@ class _OnTheWayScreenState extends ConsumerState<OnTheWayScreen>
                       ),
                       const SizedBox(width: 12),
                       const Expanded(
-                        child: Text(
+                        child: AppText(
                           'Waiting for customer payment & job completion...',
                           style: TextStyle(
                             fontSize: 11.5,

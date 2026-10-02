@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/services_provider.dart';
@@ -10,7 +13,7 @@ import '../notification/notifications_screen.dart';
 import '../profile/profile_screen.dart';
 import 'select_vehicle_screen.dart';
 import 'booking_history_screen.dart';
-import 'chat_screen.dart';
+import 'chat_history_screen.dart';
 import 'all_services_screen.dart';
 
 class CustomerHomeScreen extends ConsumerStatefulWidget {
@@ -22,9 +25,64 @@ class CustomerHomeScreen extends ConsumerStatefulWidget {
 
 class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   int _navIndex = 0;
+  late DateTime _currentTime;
+  Timer? _greetingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTime = DateTime.now();
+    _greetingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() => _currentTime = DateTime.now());
+    });
+
+    // New customer accounts get a gentle profile-completion reminder once.
+    // Email is already supplied by Auth, so name/phone are the useful fields.
+    Future.delayed(const Duration(seconds: 5), _showProfileCompletionDialog);
+  }
+
+  void _showProfileCompletionDialog() {
+    if (!mounted) return;
+    final profile = ref.read(currentUserProfileProvider);
+    final isIncomplete =
+        profile.fullName.trim().isEmpty ||
+        profile.fullName.trim().toLowerCase() == 'user' ||
+        profile.phone.trim().isEmpty;
+    if (!isIncomplete) return;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const AppText('Complete Your Profile'),
+        content: const AppText(
+          'Add your name and phone number so mechanics can contact you and your requests stay complete.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const AppText('Later'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              setState(() => _navIndex = 3);
+            },
+            child: const AppText('Complete Profile'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _greetingTimer?.cancel();
+    super.dispose();
+  }
 
   String _getGreeting() {
-    final hour = DateTime.now().hour;
+    final hour = _currentTime.hour;
     if (hour < 12) {
       return 'Good Morning';
     } else if (hour < 17) {
@@ -60,13 +118,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      AppText(
                         '$greeting, $firstName 👋',
                         style: Theme.of(
                           context,
                         ).textTheme.titleLarge?.copyWith(fontSize: 17),
                       ),
-                      Text(
+                      AppText(
                         '📍 Choose pickup location when creating a request',
                         style: TextStyle(fontSize: 11, color: c.textMuted),
                       ),
@@ -91,13 +149,13 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                         backgroundImage:
                             userProfile.avatarUrl != null &&
                                 userProfile.avatarUrl!.isNotEmpty
-                            ? NetworkImage(userProfile.avatarUrl!)
+                            ? CachedNetworkImageProvider(userProfile.avatarUrl!)
                                   as ImageProvider
                             : null,
                         child:
                             (userProfile.avatarUrl == null ||
                                 userProfile.avatarUrl!.isEmpty)
-                            ? Text(
+                            ? AppText(
                                 userProfile.initials,
                                 style: TextStyle(
                                   fontSize: 11,
@@ -123,7 +181,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                 children: [
                   Icon(Icons.search, size: 16, color: c.textMuted),
                   const SizedBox(width: 8),
-                  Text(
+                  AppText(
                     'What service do you need?',
                     style: TextStyle(fontSize: 12, color: c.textMuted),
                   ),
@@ -143,7 +201,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  AppText(
                     'Need a mechanic right now?',
                     style: TextStyle(
                       color: scheme.onPrimary,
@@ -152,7 +210,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  AppText(
                     'Get matched in under 2 minutes',
                     style: TextStyle(
                       color: scheme.onPrimary.withValues(alpha: 0.8),
@@ -178,7 +236,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                const AppText(
                   'Popular Services',
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
@@ -188,7 +246,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
                       builder: (_) => const AllServicesScreen(),
                     ),
                   ),
-                  child: Text(
+                  child: AppText(
                     'View all',
                     style: TextStyle(fontSize: 10.5, color: scheme.primary),
                   ),
@@ -206,14 +264,14 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
             else if (servicesAsync.hasError)
               Row(
                 children: [
-                  Text(
+                  AppText(
                     'Services unavailable',
                     style: TextStyle(fontSize: 11, color: c.textMuted),
                   ),
                   const Spacer(),
                   TextButton(
                     onPressed: () => ref.invalidate(servicesProvider),
-                    child: const Text('Retry'),
+                    child: const AppText('Retry'),
                   ),
                 ],
               )
@@ -246,7 +304,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     final List<Widget> pages = [
       RepaintBoundary(child: _buildHomeContent(context, ref)),
       const RepaintBoundary(child: BookingHistoryScreen()),
-      const RepaintBoundary(child: ChatScreen()),
+      const RepaintBoundary(child: ChatHistoryScreen()),
       const RepaintBoundary(child: ProfileScreen(role: UserRole.customer)),
     ];
 

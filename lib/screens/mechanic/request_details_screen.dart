@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../cores/providers/bookings_provider.dart';
 import '../../cores/repositories/live_location_repository.dart';
+import '../../cores/config/service_radius.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_atoms.dart';
 import '../../widgets/app_buttons.dart';
@@ -66,7 +68,7 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
         .update((set) => {...set, widget.bookingId});
     ScaffoldMessenger.of(
       context,
-    ).showSnackBar(const SnackBar(content: Text('Request ignored.')));
+    ).showSnackBar(const SnackBar(content: AppText('Request ignored.')));
     Navigator.pop(context);
   }
 
@@ -77,7 +79,7 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Request Details'),
+        title: const AppText('Request Details'),
         actions: [
           IconButton(
             icon: const Icon(Icons.visibility_off_outlined),
@@ -88,9 +90,11 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
       ),
       body: a.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('$e')),
+        error: (e, _) => Center(child: AppText('$e')),
         data: (b) {
-          if (b == null) return const Center(child: Text('Request not found'));
+          if (b == null) {
+            return const Center(child: AppText('Request not found'));
+          }
           final customer = b['customer'] as Map?;
           final vehicle = b['vehicle'] as Map?;
           final photos =
@@ -98,7 +102,8 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
               [];
 
           final bool isOutOfRange =
-              _distanceMeters != null && _distanceMeters! > 5000.0;
+              _distanceMeters != null &&
+              _distanceMeters! > mechanicServiceRadiusMeters;
           final String? distanceKmStr = _distanceMeters != null
               ? (_distanceMeters! / 1000.0).toStringAsFixed(1)
               : null;
@@ -106,7 +111,7 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
           return ListView(
             padding: const EdgeInsets.all(18),
             children: [
-              Text(
+              AppText(
                 customer?['full_name']?.toString() ?? 'Customer',
                 style: const TextStyle(
                   fontSize: 16,
@@ -114,16 +119,16 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
                 ),
               ),
               if (vehicle != null)
-                Text(
+                AppText(
                   '${vehicle['make_model'] ?? ''} · ${vehicle['license_plate'] ?? ''}',
                   style: TextStyle(color: context.colors.textMuted),
                 ),
               const SizedBox(height: 18),
-              const Text('SERVICE'),
-              Text(b['service_title']?.toString() ?? ''),
+              const AppText('SERVICE'),
+              AppText(b['service_title']?.toString() ?? ''),
               const SizedBox(height: 16),
-              const Text('ISSUE DESCRIPTION'),
-              Text(
+              const AppText('ISSUE DESCRIPTION'),
+              AppText(
                 b['description']?.toString().isNotEmpty == true
                     ? b['description'].toString()
                     : 'No description provided',
@@ -152,13 +157,20 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('📍 ${b['pickup_address'] ?? ''}'),
+                    AppText('📍 ${b['pickup_address'] ?? ''}'),
+                    if (b['latitude'] == null || b['longitude'] == null) ...[
+                      const SizedBox(height: 6),
+                      const AppText(
+                        'Customer location is not available yet. The 8 km check will apply when location is available.',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ],
                     if (!_calculatingDistance && distanceKmStr != null) ...[
                       const SizedBox(height: 6),
-                      Text(
+                      AppText(
                         isOutOfRange
-                            ? '⚠️ $distanceKmStr km away (Outside 5 km service limit)'
-                            : '✅ $distanceKmStr km away (Within 5 km range)',
+                            ? '⚠️ $distanceKmStr km away (Outside 8 km service limit)'
+                            : '✅ $distanceKmStr km away (Within 8 km range)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -174,8 +186,8 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('CUSTOMER BUDGET'),
-                    Text(
+                    const AppText('CUSTOMER BUDGET'),
+                    AppText(
                       'PKR ${((b['budget_price'] as num?) ?? 0).toStringAsFixed(0)}',
                     ),
                   ],
@@ -192,8 +204,8 @@ class _RequestDetailsScreenState extends ConsumerState<RequestDetailsScreen> {
                       color: Colors.orange.withValues(alpha: 0.3),
                     ),
                   ),
-                  child: const Text(
-                    'This request is beyond your 5 km service range. You can ignore or skip this request.',
+                  child: const AppText(
+                    'This request is beyond your 8 km service range. You can ignore or skip this request.',
                     style: TextStyle(color: Colors.orange, fontSize: 12),
                     textAlign: TextAlign.center,
                   ),

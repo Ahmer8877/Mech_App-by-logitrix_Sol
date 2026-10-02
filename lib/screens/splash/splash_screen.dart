@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../cores/models/user_role.dart';
@@ -123,7 +124,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     errorBuilder: (_, _, _) => Container(
                       color: scheme.onPrimary,
                       alignment: Alignment.center,
-                      child: Text(
+                      child: AppText(
                         'M',
                         style: Theme.of(context).textTheme.headlineLarge
                             ?.copyWith(color: scheme.primary, fontSize: 28),
@@ -133,7 +134,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
+              AppText(
                 'MechX',
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                   color: scheme.onPrimary,
@@ -141,7 +142,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                 ),
               ),
               const SizedBox(height: 4),
-              Text(
+              AppText(
                 'CAR BROKEN DOWN? WE ARE ON OUR WAY.',
                 style: TextStyle(
                   color: scheme.onPrimary.withValues(alpha: 0.75),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_text.dart';
 
 import '../cores/theme/app_theme.dart';
 
@@ -86,7 +87,7 @@ class ServiceTile extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
+            AppText(
               label,
               style: const TextStyle(fontSize: 10),
               textAlign: TextAlign.center,
@@ -140,7 +141,7 @@ class OfferRow extends StatelessWidget {
           CircleAvatar(
             radius: 16,
             backgroundColor: c.surface2,
-            child: Text(
+            child: AppText(
               initials,
               style: TextStyle(
                 fontSize: 10,
@@ -154,14 +155,14 @@ class OfferRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AppText(
                   '$name  ⭐$rating',
                   style: const TextStyle(
                     fontSize: 11.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                Text(
+                AppText(
                   distance,
                   style: TextStyle(fontSize: 9.5, color: c.textMuted),
                 ),
@@ -171,7 +172,7 @@ class OfferRow extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
+              AppText(
                 'Rs $price',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontSize: 14,
@@ -189,7 +190,7 @@ class OfferRow extends StatelessWidget {
                     color: c.accent,
                     borderRadius: BorderRadius.circular(6),
                   ),
-                  child: Text(
+                  child: AppText(
                     'Best offer',
                     style: TextStyle(
                       fontSize: 8.5,
@@ -210,7 +211,7 @@ class OfferRow extends StatelessWidget {
                       color: c.surface2,
                       borderRadius: BorderRadius.circular(6),
                     ),
-                    child: Text(
+                    child: AppText(
                       'Select',
                       style: TextStyle(fontSize: 8.5, color: c.textSecondary),
                     ),
@@ -244,7 +245,7 @@ class StatMini extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(
+          AppText(
             value,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontSize: 15,
@@ -252,7 +253,7 @@ class StatMini extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 8, color: c.textMuted)),
+          AppText(label, style: TextStyle(fontSize: 8, color: c.textMuted)),
         ],
       ),
     );
@@ -289,7 +290,7 @@ class AppFieldBox extends StatelessWidget {
       alignment: align == CrossAxisAlignment.start
           ? Alignment.topLeft
           : Alignment.centerLeft,
-      child: Text(text, style: TextStyle(fontSize: 11, color: c.textMuted)),
+      child: AppText(text, style: TextStyle(fontSize: 11, color: c.textMuted)),
     );
   }
 }
@@ -389,7 +390,7 @@ class MapPin extends StatelessWidget {
           alignment: Alignment.center,
           child: Transform.rotate(
             angle: 0.785398,
-            child: Text(emoji, style: const TextStyle(fontSize: 11)),
+            child: AppText(emoji, style: const TextStyle(fontSize: 11)),
           ),
         ),
       ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/chat_provider.dart';
@@ -74,9 +75,9 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _markRead();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to send message: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: AppText('Failed to send message: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _sending = false);
@@ -114,8 +115,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   Widget build(BuildContext context) {
     if (widget.bookingId.isEmpty || widget.otherUserId.isEmpty) {
       return Scaffold(
-        appBar: AppBar(title: Text(widget.otherName)),
-        body: const Center(child: Text('Open a booking to start a live chat.')),
+        appBar: AppBar(title: AppText(widget.otherName)),
+        body: const Center(
+          child: AppText('Open a booking to start a live chat.'),
+        ),
       );
     }
 
@@ -123,17 +126,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final currentUserId = ref.watch(authProvider).user?.id;
 
     return Scaffold(
-      appBar: AppBar(title: Text(widget.otherName)),
+      appBar: AppBar(title: AppText(widget.otherName)),
       body: Column(
         children: [
           Expanded(
             child: messages.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, _) =>
-                  Center(child: Text('Failed to load chat: $error')),
+                  Center(child: AppText('Failed to load chat: $error')),
               data: (items) {
                 if (items.isEmpty) {
-                  return const Center(child: Text('No messages yet.'));
+                  return const Center(child: AppText('No messages yet.'));
                 }
 
                 return ListView.builder(
@@ -156,7 +159,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                               : context.colors.surface2,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
+                        child: AppText(
                           message.message,
                           style: TextStyle(
                             color: isMine

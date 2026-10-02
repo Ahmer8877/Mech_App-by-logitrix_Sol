@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'app_text.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -13,6 +14,10 @@ class LiveGoogleMap extends StatefulWidget {
   final LiveLocation? mechanicLocation;
   final bool showCustomerMarker;
   final bool showMechanicMarker;
+  final LatLng? currentLocation;
+  final bool locationServiceEnabled;
+  final bool locationPermissionDenied;
+  final VoidCallback? onEnableLocation;
 
   const LiveGoogleMap({
     super.key,
@@ -20,6 +25,10 @@ class LiveGoogleMap extends StatefulWidget {
     this.mechanicLocation,
     this.showCustomerMarker = true,
     this.showMechanicMarker = true,
+    this.currentLocation,
+    this.locationServiceEnabled = true,
+    this.locationPermissionDenied = false,
+    this.onEnableLocation,
   });
 
   @override
@@ -170,6 +179,19 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
       );
     }
 
+    if (widget.currentLocation != null) {
+      markers.add(
+        Marker(
+          markerId: const MarkerId('my_current_location'),
+          position: widget.currentLocation!,
+          infoWindow: const InfoWindow(title: 'My Current Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(
+            BitmapDescriptor.hueGreen,
+          ),
+        ),
+      );
+    }
+
     final mechanic = _mechanicLatLng(widget.mechanicLocation);
     if (widget.showMechanicMarker && mechanic != null) {
       markers.add(
@@ -270,6 +292,56 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
               });
             },
           ),
+          if (widget.onEnableLocation != null &&
+              (!widget.locationServiceEnabled ||
+                  widget.locationPermissionDenied))
+            Positioned(
+              top: 12,
+              right: 12,
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(10),
+                elevation: 3,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(10),
+                  onTap: widget.onEnableLocation,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 11, vertical: 9),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.location_on_outlined, size: 17),
+                        SizedBox(width: 6),
+                        AppText(
+                          'Turn on location',
+                          style: TextStyle(fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            )
+          else if (widget.currentLocation != null)
+            Positioned(
+              right: 12,
+              bottom: 12,
+              child: Material(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: BorderRadius.circular(24),
+                elevation: 3,
+                child: InkWell(
+                  customBorder: const CircleBorder(),
+                  onTap: () => _controller?.animateCamera(
+                    CameraUpdate.newLatLngZoom(widget.currentLocation!, 16),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.all(12),
+                    child: Icon(Icons.my_location, size: 20),
+                  ),
+                ),
+              ),
+            ),
           if (!hasAnyLocation)
             Positioned.fill(
               child: ColoredBox(
@@ -279,7 +351,7 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(20),
-                    child: Text(
+                    child: AppText(
                       'Location is not available yet.\nWaiting for GPS...',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.colors.textMuted),
@@ -306,7 +378,7 @@ class _LiveGoogleMapState extends State<LiveGoogleMap> {
                     children: [
                       Icon(Icons.circle, size: 9, color: Colors.green),
                       SizedBox(width: 6),
-                      Text('Mechanic live'),
+                      AppText('Mechanic live'),
                     ],
                   ),
                 ),

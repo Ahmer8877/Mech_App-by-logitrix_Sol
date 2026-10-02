@@ -15,22 +15,23 @@ final selectedRoleProvider = StateProvider<UserRole>(
 );
 
 /// Real-time stream provider watching active user profile changes (is_verified, status, rating, avatar)
-final activeProfileStreamProvider =
-    StreamProvider.family<UserProfile?, String>((ref, userId) {
-  if (userId.isEmpty) return Stream.value(null);
+final activeProfileStreamProvider = StreamProvider.family<UserProfile?, String>(
+  (ref, userId) {
+    if (userId.isEmpty) return Stream.value(null);
 
-  return supabase
-      .from('profiles')
-      .stream(primaryKey: ['id'])
-      .eq('id', userId)
-      .handleError((e) {
-        debugPrint('Active profile stream error: $e');
-      })
-      .map((rows) {
-        if (rows.isEmpty) return null;
-        return UserProfile.fromMap(Map<String, dynamic>.from(rows.first));
-      });
-});
+    return supabase
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .eq('id', userId)
+        .handleError((e) {
+          debugPrint('Active profile stream error: $e');
+        })
+        .map((rows) {
+          if (rows.isEmpty) return null;
+          return UserProfile.fromMap(Map<String, dynamic>.from(rows.first));
+        });
+  },
+);
 
 /// Riverpod StateNotifier for managing Authentication state & user profile fetching
 class AuthNotifier extends StateNotifier<AppAuthState> {
@@ -56,19 +57,22 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         .handleError((e) {
           debugPrint('Profiles realtime stream error: $e');
         })
-        .listen((rows) {
-          if (rows.isNotEmpty) {
-            final updatedProfile = UserProfile.fromMap(
-              Map<String, dynamic>.from(rows.first),
-            );
-            state = state.copyWith(
-              profile: updatedProfile,
-              role: updatedProfile.role,
-            );
-          }
-        }, onError: (e) {
-          debugPrint('Profiles stream listen error: $e');
-        });
+        .listen(
+          (rows) {
+            if (rows.isNotEmpty) {
+              final updatedProfile = UserProfile.fromMap(
+                Map<String, dynamic>.from(rows.first),
+              );
+              state = state.copyWith(
+                profile: updatedProfile,
+                role: updatedProfile.role,
+              );
+            }
+          },
+          onError: (e) {
+            debugPrint('Profiles stream listen error: $e');
+          },
+        );
   }
 
   Future<void> _initUser() async {
@@ -89,7 +93,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
 
       final existing = await _loadProfile(user.id);
       final createdAt = DateTime.tryParse(user.createdAt);
-      final isNewAuthUser = createdAt != null &&
+      final isNewAuthUser =
+          createdAt != null &&
           DateTime.now().difference(createdAt).abs() <
               const Duration(minutes: 5);
       final requestedRole = targetRole;
@@ -107,13 +112,15 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
               user.email?.split('@').first ??
               'User',
           'email': user.email ?? '',
-          'phone_number': user.userMetadata?['phone_number'] ?? user.phone ?? '',
+          'phone_number':
+              user.userMetadata?['phone_number'] ?? user.phone ?? '',
           'role': requestedRole.name,
           'avatar_url':
               user.userMetadata?['avatar_url'] ?? user.userMetadata?['picture'],
           'is_verified': requestedRole == UserRole.customer,
-          'verification_status':
-              requestedRole == UserRole.customer ? 'approved' : 'pending',
+          'verification_status': requestedRole == UserRole.customer
+              ? 'approved'
+              : 'pending',
         });
       } else if (isNewAuthUser && existing['role'] != 'admin') {
         // The OAuth trigger creates the profile first. Role/verification fields
@@ -194,6 +201,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
             : (currentUser?.email ?? ''),
         phone: phone,
         role: profile.role,
+        specialization: profile.specialization,
+        experienceYears: profile.experienceYears,
         avatarUrl: profile.avatarUrl,
         cnic: profile.cnic,
         cnicFrontUrl: profile.cnicFrontUrl,
@@ -230,8 +239,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       final userId = state.user?.id ?? 'user';
       final fileBytes = await imageFile.readAsBytes();
       final fileExt = imageFile.name.split('.').last;
-      final fileName =
-          '$userId-${DateTime.now().millisecondsSinceEpoch}.$fileExt';
+      final fileName = '$userId/avatar.$fileExt';
 
       await supabase.storage
           .from('avatars')
@@ -259,6 +267,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         email: state.profile?.email ?? '',
         phone: state.profile?.phone ?? '',
         role: state.profile?.role ?? targetRole,
+        specialization: state.profile?.specialization,
+        experienceYears: state.profile?.experienceYears,
         avatarUrl: imageUrl,
         cnic: state.profile?.cnic,
         cnicFrontUrl: state.profile?.cnicFrontUrl,
@@ -311,10 +321,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         await storageBucket.uploadBinary(
           name,
           bytes,
-          fileOptions: FileOptions(
-            contentType: 'image/$ext',
-            upsert: true,
-          ),
+          fileOptions: FileOptions(contentType: 'image/$ext', upsert: true),
         );
         avatarUrl = storageBucket.getPublicUrl(name);
       }
@@ -327,10 +334,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       await storageBucket.uploadBinary(
         frontName,
         frontBytes,
-        fileOptions: FileOptions(
-          contentType: 'image/$frontExt',
-          upsert: true,
-        ),
+        fileOptions: FileOptions(contentType: 'image/$frontExt', upsert: true),
       );
       final cnicFrontUrl = storageBucket.getPublicUrl(frontName);
 
@@ -342,10 +346,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       await storageBucket.uploadBinary(
         backName,
         backBytes,
-        fileOptions: FileOptions(
-          contentType: 'image/$frontExt',
-          upsert: true,
-        ),
+        fileOptions: FileOptions(contentType: 'image/$frontExt', upsert: true),
       );
       final cnicBackUrl = storageBucket.getPublicUrl(backName);
 
@@ -360,10 +361,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         await storageBucket.uploadBinary(
           tName,
           tBytes,
-          fileOptions: FileOptions(
-            contentType: 'image/$tExt',
-            upsert: true,
-          ),
+          fileOptions: FileOptions(contentType: 'image/$tExt', upsert: true),
         );
         toolsUrls.add(storageBucket.getPublicUrl(tName));
       }
@@ -372,21 +370,26 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       // role is controlled by the server-side social/email signup flow.
       final currentProfile = await _loadProfile(userId);
       if (currentProfile == null || currentProfile['role'] != 'mechanic') {
-        throw Exception('Mechanic role is not prepared for this account. Please log in again from the Mechanic portal.');
+        throw Exception(
+          'Mechanic role is not prepared for this account. Please log in again from the Mechanic portal.',
+        );
       }
 
-      await supabase.from('profiles').update({
-        'phone_number': phoneNumber.trim(),
-        'cnic_number': cnicNumber.trim(),
-        'cnic': cnicNumber.trim(),
-        'cnic_front_url': cnicFrontUrl,
-        'cnic_back_url': cnicBackUrl,
-        'workshop_tools_urls': toolsUrls,
-        'avatar_url': avatarUrl,
-        'is_verified': false,
-        'verification_status': 'pending',
-        'verification_notes': null,
-      }).eq('id', userId);
+      await supabase
+          .from('profiles')
+          .update({
+            'phone_number': phoneNumber.trim(),
+            'cnic_number': cnicNumber.trim(),
+            'cnic': cnicNumber.trim(),
+            'cnic_front_url': cnicFrontUrl,
+            'cnic_back_url': cnicBackUrl,
+            'workshop_tools_urls': toolsUrls,
+            'avatar_url': avatarUrl,
+            'is_verified': false,
+            'verification_status': 'pending',
+            'verification_notes': null,
+          })
+          .eq('id', userId);
 
       await fetchUserProfile(userId);
       state = state.copyWith(isLoading: false, errorMessage: null);
@@ -406,6 +409,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
     required String fullName,
     required String phone,
     required String email,
+    String? specialization,
+    int? experienceYears,
   }) async {
     state = state.copyWith(isLoading: true);
     try {
@@ -417,6 +422,10 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
               'full_name': fullName.trim(),
               'phone_number': phone.trim(),
               'email': email.trim(),
+              if (state.profile?.role == UserRole.mechanic) ...{
+                'specialization': specialization?.trim(),
+                'experience_years': experienceYears,
+              },
             })
             .eq('id', userId);
       }
@@ -427,6 +436,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         email: email.trim(),
         phone: phone.trim(),
         role: state.profile?.role ?? targetRole,
+        specialization: specialization?.trim(),
+        experienceYears: experienceYears,
         avatarUrl: state.profile?.avatarUrl,
         cnic: state.profile?.cnic,
         cnicFrontUrl: state.profile?.cnicFrontUrl,
@@ -500,46 +511,18 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         if (profileResponse != null) {
           final profile = UserProfile.fromMap(profileResponse);
 
-          // If role doesn't match portal, update profile role to match targetRole instead of signing out
+          // A login portal must never change an existing account's role.
+          // The same email/password account must be rejected on the wrong portal.
           if (profile.role != targetRole) {
-            final bool isAlreadyVerified = targetRole == UserRole.mechanic &&
-                profile.isVerified &&
-                profile.cnicFrontUrl != null &&
-                profile.cnicFrontUrl!.isNotEmpty;
-
-            await supabase.from('profiles').update({
-              'role': targetRole.name,
-              'is_verified': isAlreadyVerified,
-              'verification_status':
-                  isAlreadyVerified ? 'approved' : 'pending',
-            }).eq('id', user.id);
-
-            final updatedProfile = UserProfile(
-              id: profile.id,
-              fullName: profile.fullName,
-              email: profile.email,
-              phone: profile.phone,
-              role: targetRole,
-              avatarUrl: profile.avatarUrl,
-              cnic: profile.cnic,
-              cnicFrontUrl: profile.cnicFrontUrl,
-              cnicBackUrl: profile.cnicBackUrl,
-              workshopToolsUrls: profile.workshopToolsUrls,
-              rating: profile.rating,
-              totalJobs: profile.totalJobs,
-              isVerified: isAlreadyVerified,
-              verificationStatus:
-                  isAlreadyVerified ? 'approved' : 'pending',
-              verificationNotes: profile.verificationNotes,
-            );
-
+            await supabase.auth.signOut();
             state = state.copyWith(
               isLoading: false,
-              user: user,
-              profile: updatedProfile,
-              role: targetRole,
+              user: null,
+              profile: null,
+              errorMessage:
+                  'This account is registered for the ${profile.role == UserRole.mechanic ? 'Mechanic' : 'Customer'} portal.',
             );
-            return true;
+            return false;
           }
 
           state = state.copyWith(
@@ -646,7 +629,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
 
       final response = await _loadProfile(user.id);
       final createdAt = DateTime.tryParse(user.createdAt);
-      final isNewAuthUser = createdAt != null &&
+      final isNewAuthUser =
+          createdAt != null &&
           DateTime.now().difference(createdAt).abs() <
               const Duration(minutes: 5);
 
@@ -666,14 +650,30 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         }
 
         final effectiveRole = profile.role;
+        if (effectiveRole != role) {
+          await supabase.auth.signOut();
+          state = state.copyWith(
+            isLoading: false,
+            user: null,
+            profile: null,
+            errorMessage:
+                'This account is registered for the ${effectiveRole == UserRole.mechanic ? 'Mechanic' : 'Customer'} portal.',
+          );
+          return false;
+        }
         final effectiveVerified = profile.isVerified;
         final effectiveStatus = profile.verificationStatus;
 
-        await supabase.from('profiles').update({
-          'full_name': profile.fullName == 'User' ? fullName : profile.fullName,
-          'phone_number': profile.phone.isNotEmpty ? profile.phone : phone,
-          'avatar_url': socialAvatar ?? profile.avatarUrl,
-        }).eq('id', user.id);
+        await supabase
+            .from('profiles')
+            .update({
+              'full_name': profile.fullName == 'User'
+                  ? fullName
+                  : profile.fullName,
+              'phone_number': profile.phone.isNotEmpty ? profile.phone : phone,
+              'avatar_url': profile.avatarUrl,
+            })
+            .eq('id', user.id);
 
         final updatedProfile = UserProfile(
           id: profile.id,
@@ -681,6 +681,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
           email: profile.email.isNotEmpty ? profile.email : (user.email ?? ''),
           phone: profile.phone.isNotEmpty ? profile.phone : phone,
           role: effectiveRole,
+          specialization: profile.specialization,
+          experienceYears: profile.experienceYears,
           avatarUrl: profile.avatarUrl ?? socialAvatar,
           cnic: profile.cnic,
           cnicFrontUrl: profile.cnicFrontUrl,
@@ -709,6 +711,8 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         email: user.email ?? '',
         phone: phone,
         role: role,
+        specialization: null,
+        experienceYears: null,
         avatarUrl: socialAvatar,
         isVerified: role == UserRole.customer,
         verificationStatus: role == UserRole.customer ? 'approved' : 'pending',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/bookings_provider.dart';
 import '../../widgets/app_atoms.dart';
@@ -40,7 +41,7 @@ class _PaymentRatingScreenState extends ConsumerState<PaymentRatingScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Payment update failed: $e')));
+        ).showSnackBar(SnackBar(content: AppText('Payment update failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -55,10 +56,10 @@ class _PaymentRatingScreenState extends ConsumerState<PaymentRatingScreen> {
       body: SafeArea(
         child: booking.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => Center(child: Text('$error')),
+          error: (error, _) => Center(child: AppText('$error')),
           data: (data) {
             if (data == null) {
-              return const Center(child: Text('Booking not found.'));
+              return const Center(child: AppText('Booking not found.'));
             }
 
             final rawAmount = data['agreed_price'] ?? data['budget_price'];
@@ -71,14 +72,14 @@ class _PaymentRatingScreenState extends ConsumerState<PaymentRatingScreen> {
                   const SizedBox(height: 20),
                   const Icon(Icons.check_circle, size: 60),
                   const SizedBox(height: 12),
-                  const Text('Job Completed!'),
+                  const AppText('Job Completed!'),
                   const SizedBox(height: 20),
                   AppCard(
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total'),
-                        Text('PKR ${amount.toStringAsFixed(0)}'),
+                        const AppText('Total'),
+                        AppText('PKR ${amount.toStringAsFixed(0)}'),
                       ],
                     ),
                   ),
@@ -92,7 +93,7 @@ class _PaymentRatingScreenState extends ConsumerState<PaymentRatingScreen> {
                         ].map((method) {
                           return DropdownMenuItem(
                             value: method,
-                            child: Text(method),
+                            child: AppText(method),
                           );
                         }).toList(),
                     onChanged: (value) {

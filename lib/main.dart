@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'widgets/app_text.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:internationalization/internationalization.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mech_app/cores/config/dotenv_config.dart';
 import 'package:mech_app/cores/config/supabase_config.dart';
 import 'cores/providers/connectivity_provider.dart';
 import 'cores/providers/theme_provider.dart';
+import 'cores/providers/language_provider.dart';
 import 'cores/theme/app_theme.dart';
 import 'screens/splash/splash_screen.dart';
 
@@ -26,10 +30,23 @@ class MechXApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final locale = ref.watch(languageProvider);
+    const supportedLocales = [Locale('en'), Locale('ur')];
 
     return MaterialApp(
       title: 'MechX',
       debugShowCheckedModeBanner: false,
+      locale: locale,
+      supportedLocales: supportedLocales,
+      localizationsDelegates: [
+        InternationalizationDelegate(
+          suportedLocales: supportedLocales,
+          translationsPath: 'assets/translations/',
+        ),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       themeMode: themeMode,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
@@ -62,7 +79,7 @@ class MechXApp extends ConsumerWidget {
                           ),
                           const SizedBox(width: 6),
                           const Expanded(
-                            child: Text(
+                            child: AppText(
                               'No Internet Connection. Please check your network.',
                               style: TextStyle(
                                 color: Colors.white,
@@ -98,4 +115,3 @@ class MechXApp extends ConsumerWidget {
     );
   }
 }
-// bookings_location,chat_messages,bookings,notifications,offers,reviews =>ye sub tables ke data ko clean krne liye mujy sql query do safely del krna hai

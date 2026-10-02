@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/models/service_model.dart';
 import '../../cores/providers/services_provider.dart';
@@ -59,10 +60,10 @@ class AllServicesScreen extends ConsumerWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Failed to load services.'),
+              const AppText('Failed to load services.'),
               TextButton(
                 onPressed: () => ref.invalidate(servicesProvider),
-                child: const Text('Retry'),
+                child: const AppText('Retry'),
               ),
             ],
           ),

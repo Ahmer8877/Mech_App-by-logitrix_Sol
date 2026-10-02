@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/mechanic_stats_provider.dart';
 import '../../cores/theme/app_theme.dart';
@@ -9,20 +10,21 @@ class EarningsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final a = ref.watch(mechanicStatsProvider);
     return Scaffold(
-      appBar: AppBar(title: const Text('Earnings')),
+      appBar: AppBar(title: const AppText('Earnings')),
       body: a.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => (Center(child: Text('Failed to load earnings: $e'))),
+        error: (e, _) =>
+            (Center(child: AppText('Failed to load earnings: $e'))),
         data: (s) => Padding(
           padding: const EdgeInsets.all(18),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              AppText(
                 'PKR ${s.totalEarnings.toStringAsFixed(0)}',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
-              Text(
+              AppText(
                 'Total Lifetime Earnings',
                 style: TextStyle(color: context.colors.textMuted),
               ),
@@ -51,8 +53,8 @@ class _Row extends StatelessWidget {
     child: Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(l),
-        Text(v, style: const TextStyle(fontWeight: FontWeight.bold)),
+        AppText(l),
+        AppText(v, style: const TextStyle(fontWeight: FontWeight.bold)),
       ],
     ),
   );

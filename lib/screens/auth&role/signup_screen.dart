@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/models/user_role.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
+import '../../utils/pakistan_input_formatters.dart';
 import '../customer/customer_home_screen.dart';
 import '../mechanic/mechanic_home_screen.dart';
 
@@ -46,10 +48,10 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
           fullName: _nameController.text.trim(),
-          phone: _phoneController.text.trim(),
+          phone: normalizePakistanPhone(_phoneController.text.trim()),
           role: widget.role,
           cnic: widget.role == UserRole.mechanic
-              ? _cnicController.text.trim()
+              ? normalizePakistanCnic(_cnicController.text.trim())
               : null,
         );
 
@@ -60,7 +62,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
     if (success || authState.user != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Account created successfully! Welcome to MechX.'),
+          content: AppText('Account created successfully! Welcome to MechX.'),
         ),
       );
       Navigator.of(context).pushAndRemoveUntil(
@@ -85,7 +87,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
+            content: AppText(
               authState.errorMessage ?? 'Signup failed. Please try again.',
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
@@ -111,14 +113,14 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AppText(
                   'Create Account',
                   style: Theme.of(
                     context,
                   ).textTheme.headlineMedium?.copyWith(fontSize: 21),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                AppText(
                   widget.role == UserRole.customer
                       ? 'Creating a Customer Account'
                       : 'Creating a Mechanic Account',
@@ -147,16 +149,17 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
+                  inputFormatters: [PakistanPhoneFormatter()],
                   decoration: const InputDecoration(
-                    hintText: '+92 300 1234567',
+                    hintText: '03001234567',
                     prefixIcon: Icon(Icons.phone_outlined, size: 20),
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return 'Please enter your phone number';
                     }
-                    if (value.trim().length < 10) {
-                      return 'Please enter a valid phone number';
+                    if (normalizePakistanPhone(value.trim()).isEmpty) {
+                      return 'Please enter a valid 11-digit Pakistani mobile number';
                     }
                     return null;
                   },
@@ -248,6 +251,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                   TextFormField(
                     controller: _cnicController,
                     keyboardType: TextInputType.number,
+                    inputFormatters: [PakistanCnicFormatter()],
                     decoration: const InputDecoration(
                       hintText: '35202-1234567-1',
                       prefixIcon: Icon(Icons.badge_outlined, size: 20),
@@ -257,7 +261,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         if (value == null || value.trim().isEmpty) {
                           return 'CNIC number is required for mechanic registration';
                         }
-                        if (value.trim().length < 13) {
+                        if (normalizePakistanCnic(value.trim()).isEmpty) {
                           return 'Please enter a valid 13-digit CNIC number';
                         }
                       }
@@ -265,7 +269,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     },
                   ),
                   const SizedBox(height: 8),
-                  Text(
+                  AppText(
                     'Mechanic account requires admin verification before approval.',
                     style: TextStyle(fontSize: 10, color: c.textMuted),
                   ),
@@ -315,7 +319,7 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
+      child: AppText(
         text,
         style: TextStyle(
           fontSize: 9.5,

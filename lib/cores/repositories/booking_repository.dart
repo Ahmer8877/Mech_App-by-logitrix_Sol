@@ -35,7 +35,7 @@ class BookingRepository {
   Future<List<Map<String, dynamic>>> getOpenRequests({
     double? mechanicLat,
     double? mechanicLng,
-    double maxDistanceMeters = 5000.0,
+    double maxDistanceMeters = 8000.0,
   }) async {
     final rows = await client
         .from('bookings')

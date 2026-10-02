@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/models/user_profile_model.dart';
 import '../../cores/models/user_role.dart';
@@ -24,7 +25,7 @@ class _RoleSelectScreenState extends ConsumerState<RoleSelectScreen> {
           authState.errorMessage!.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(authState.errorMessage!),
+            content: AppText(authState.errorMessage!),
             backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 3),
           ),
@@ -43,7 +44,7 @@ class _RoleSelectScreenState extends ConsumerState<RoleSelectScreen> {
           next.errorMessage != previous?.errorMessage) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(next.errorMessage!),
+            content: AppText(next.errorMessage!),
             backgroundColor: Theme.of(context).colorScheme.error,
             duration: const Duration(seconds: 3),
           ),
@@ -58,14 +59,14 @@ class _RoleSelectScreenState extends ConsumerState<RoleSelectScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              AppText(
                 'Who are you?',
                 style: Theme.of(
                   context,
                 ).textTheme.headlineMedium?.copyWith(fontSize: 21),
               ),
               const SizedBox(height: 4),
-              Text(
+              AppText(
                 'Select your role to customize your experience',
                 style: TextStyle(fontSize: 12, color: context.colors.textMuted),
               ),
@@ -160,20 +161,20 @@ class _RoleCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(11),
               ),
               alignment: Alignment.center,
-              child: Text(emoji, style: const TextStyle(fontSize: 18)),
+              child: AppText(emoji, style: const TextStyle(fontSize: 18)),
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AppText(
                   title,
                   style: const TextStyle(
                     fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                Text(
+                AppText(
                   subtitle,
                   style: TextStyle(fontSize: 10.5, color: c.textMuted),
                 ),

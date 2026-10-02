@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_text.dart';
 
 import '../cores/theme/app_theme.dart';
 
@@ -42,7 +43,7 @@ class FlowAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context) =>
-      AppBar(title: Text(title, style: const TextStyle(fontSize: 15)));
+      AppBar(title: AppText(title, style: const TextStyle(fontSize: 15)));
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);

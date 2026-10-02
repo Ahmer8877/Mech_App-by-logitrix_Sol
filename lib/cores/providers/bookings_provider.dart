@@ -5,6 +5,7 @@ import '../config/supabase_config.dart';
 import '../models/booking_model.dart';
 import '../repositories/booking_repository.dart';
 import '../repositories/live_location_repository.dart';
+import '../config/service_radius.dart';
 import 'auth_provider.dart';
 
 final bookingRepositoryProvider = Provider(
@@ -68,10 +69,12 @@ final openRequestsProvider = StreamProvider<List<Map<String, dynamic>>>((
     final list = await repo.getOpenRequests(
       mechanicLat: pos?.latitude,
       mechanicLng: pos?.longitude,
-      maxDistanceMeters: 5000.0,
+      maxDistanceMeters: mechanicServiceRadiusMeters,
     );
     if (ignoredSet.isEmpty) return list;
-    return list.where((item) => !ignoredSet.contains(item['id']?.toString())).toList();
+    return list
+        .where((item) => !ignoredSet.contains(item['id']?.toString()))
+        .toList();
   }
 
   yield await fetch();

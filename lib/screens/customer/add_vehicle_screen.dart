@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
 import '../../widgets/step_progress.dart';
@@ -32,21 +33,27 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
   }
 
   void _submit() {
-    if (_makeController.text.trim().isEmpty ||
-        _plateController.text.trim().isEmpty) {
-      setState(() => _error = 'Make/Model and License Plate are required');
+    final make = _makeController.text.trim();
+    final plate = _plateController.text.trim();
+    final year = _yearController.text.trim();
+
+    if (make.isEmpty || plate.isEmpty || year.isEmpty) {
+      setState(
+        () => _error = 'Make & Model, License Plate and Year are required',
+      );
       return;
     }
+
+    final parsedYear = int.tryParse(year);
+    if (parsedYear == null ||
+        parsedYear < 1900 ||
+        parsedYear > DateTime.now().year + 1) {
+      setState(() => _error = 'Please enter a valid vehicle year');
+      return;
+    }
+
     setState(() => _error = null);
-    Navigator.of(context).pop(
-      NewVehicleResult(
-        _makeController.text.trim(),
-        _plateController.text.trim(),
-        year: _yearController.text.trim().isEmpty
-            ? null
-            : _yearController.text.trim(),
-      ),
-    );
+    Navigator.of(context).pop(NewVehicleResult(make, plate, year: year));
   }
 
   @override
@@ -83,8 +90,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                         ),
                       ),
                       const SizedBox(height: 22),
-                      Text(
-                        'MAKE & MODEL',
+                      AppText(
+                        'MAKE & MODEL *',
                         style: TextStyle(
                           fontSize: 9.5,
                           color: c.textMuted,
@@ -99,8 +106,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      Text(
-                        'LICENSE PLATE',
+                      AppText(
+                        'LICENSE PLATE *',
                         style: TextStyle(
                           fontSize: 9.5,
                           color: c.textMuted,
@@ -115,8 +122,8 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                         ),
                       ),
                       const SizedBox(height: 14),
-                      Text(
-                        'YEAR (OPTIONAL)',
+                      AppText(
+                        'YEAR *',
                         style: TextStyle(
                           fontSize: 9.5,
                           color: c.textMuted,
@@ -133,7 +140,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 10),
-                        Text(
+                        AppText(
                           _error!,
                           style: TextStyle(fontSize: 11.5, color: c.danger),
                         ),

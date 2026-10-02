@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/step_progress.dart';
 
@@ -55,14 +56,14 @@ class SavedPaymentMethodsScreen extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
+                          AppText(
                             m.label,
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          Text(
+                          AppText(
                             m.detail,
                             style: TextStyle(fontSize: 10, color: c.textMuted),
                           ),
@@ -78,13 +79,13 @@ class SavedPaymentMethodsScreen extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text(
+                  content: AppText(
                     'Card/wallet linking will be available after payment gateway integration',
                   ),
                 ),
               ),
               icon: const Icon(Icons.add, size: 16),
-              label: const Text('Add Card or Wallet'),
+              label: const AppText('Add Card or Wallet'),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 46),
                 shape: RoundedRectangleBorder(

@@ -8,6 +8,8 @@ class UserProfile {
   final String email;
   final String phone;
   final UserRole role;
+  final String? specialization;
+  final int? experienceYears;
   final String? avatarUrl;
   final String? cnic;
   final String? cnicFrontUrl;
@@ -25,6 +27,8 @@ class UserProfile {
     required this.email,
     required this.phone,
     required this.role,
+    this.specialization,
+    this.experienceYears,
     this.avatarUrl,
     this.cnic,
     this.cnicFrontUrl,
@@ -49,7 +53,10 @@ class UserProfile {
     }
 
     final rawStatus = map['verification_status']?.toString().trim();
-    final status = (rawStatus == 'approved' || rawStatus == 'rejected' || rawStatus == 'pending')
+    final status =
+        (rawStatus == 'approved' ||
+            rawStatus == 'rejected' ||
+            rawStatus == 'pending')
         ? rawStatus!
         : (map['is_verified'] == true ? 'approved' : 'pending');
     final isVerifiedBool = map['is_verified'] == true || status == 'approved';
@@ -60,6 +67,8 @@ class UserProfile {
       email: map['email'] ?? '',
       phone: map['phone_number'] ?? '',
       role: map['role'] == 'mechanic' ? UserRole.mechanic : UserRole.customer,
+      specialization: map['specialization']?.toString(),
+      experienceYears: (map['experience_years'] as num?)?.toInt(),
       avatarUrl: map['avatar_url'],
       cnic: map['cnic_number'],
       cnicFrontUrl: map['cnic_front_url'],

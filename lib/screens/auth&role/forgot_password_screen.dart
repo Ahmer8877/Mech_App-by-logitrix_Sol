@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/models/user_profile_model.dart';
 import '../../cores/providers/auth_provider.dart';
@@ -41,7 +42,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
+          content: AppText(
             authState.errorMessage ??
                 'Failed to send reset link. Please check your email.',
           ),
@@ -76,14 +77,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          AppText(
             'Forgot Password?',
             style: Theme.of(
               context,
             ).textTheme.headlineMedium?.copyWith(fontSize: 21),
           ),
           const SizedBox(height: 8),
-          Text(
+          AppText(
             'Enter your registered email address and we will send you a link to reset your password.',
             style: TextStyle(fontSize: 12, color: context.colors.textMuted),
           ),
@@ -118,7 +119,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
             child: TextButton.icon(
               onPressed: () => Navigator.of(context).pop(),
               icon: const Icon(Icons.arrow_back, size: 16),
-              label: const Text('Back to Login'),
+              label: const AppText('Back to Login'),
             ),
           ),
         ],
@@ -144,14 +145,14 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
           ),
         ),
         const SizedBox(height: 20),
-        Text(
+        AppText(
           'Check Your Email',
           style: Theme.of(
             context,
           ).textTheme.headlineSmall?.copyWith(fontSize: 20),
         ),
         const SizedBox(height: 8),
-        Text(
+        AppText(
           'We have sent a password reset link to:\n${_emailController.text.trim()}',
           textAlign: TextAlign.center,
           style: TextStyle(fontSize: 12, color: c.textMuted),
@@ -175,7 +176,7 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
+      child: AppText(
         text,
         style: TextStyle(
           fontSize: 9.5,

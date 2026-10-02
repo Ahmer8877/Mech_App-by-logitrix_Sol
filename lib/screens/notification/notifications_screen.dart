@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/models/notification_model.dart';
 import '../../cores/providers/notifications_provider.dart';
@@ -15,22 +16,22 @@ class NotificationsScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(
+        title: const AppText(
           'Delete Notification?',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        content: Text(
+        content: AppText(
           'Are you sure you want to delete "${notification.title}"?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const AppText('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Delete'),
+            child: const AppText('Delete'),
           ),
         ],
       ),
@@ -47,22 +48,22 @@ class NotificationsScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(
+        title: const AppText(
           'Clear All Notifications?',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        content: const Text(
+        content: const AppText(
           'Are you sure you want to delete all notifications? This action cannot be undone.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: const AppText('Cancel'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Clear All'),
+            child: const AppText('Clear All'),
           ),
         ],
       ),
@@ -82,7 +83,7 @@ class NotificationsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications', style: TextStyle(fontSize: 15)),
+        title: const AppText('Notifications', style: TextStyle(fontSize: 15)),
         actions: [
           if (notifications.isNotEmpty) ...[
             IconButton(
@@ -106,17 +107,17 @@ class NotificationsScreen extends ConsumerWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Failed to load notifications.'),
+                  const AppText('Failed to load notifications.'),
                   TextButton(
                     onPressed: () => ref.invalidate(notificationsProvider),
-                    child: const Text('Retry'),
+                    child: const AppText('Retry'),
                   ),
                 ],
               ),
             )
           : notifications.isEmpty
           ? Center(
-              child: Text(
+              child: AppText(
                 'No notifications',
                 style: TextStyle(color: c.textMuted, fontSize: 12),
               ),
@@ -182,7 +183,7 @@ class NotificationsScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                AppText(
                                   n.title,
                                   style: const TextStyle(
                                     fontSize: 12,
@@ -190,7 +191,7 @@ class NotificationsScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 2),
-                                Text(
+                                AppText(
                                   n.subtitle,
                                   style: TextStyle(
                                     fontSize: 10.5,
@@ -198,7 +199,7 @@ class NotificationsScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 4),
-                                Text(
+                                AppText(
                                   n.time,
                                   style: TextStyle(
                                     fontSize: 9,

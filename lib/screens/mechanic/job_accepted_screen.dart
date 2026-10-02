@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/bookings_provider.dart';
 import '../../widgets/app_buttons.dart';
@@ -14,11 +15,11 @@ class JobAcceptedScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final a = ref.watch(bookingDetailsProvider(bookingId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Offer Accepted')),
+      appBar: AppBar(title: const AppText('Offer Accepted')),
       body: SafeArea(
         child: a.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('$e')),
+          error: (e, _) => Center(child: AppText('$e')),
           data: (b) {
             final customer = b?['customer'] as Map?;
             final name = customer?['full_name']?.toString() ?? 'Customer';
@@ -39,12 +40,12 @@ class JobAcceptedScreen extends ConsumerWidget {
                   const Spacer(),
                   const Icon(Icons.check_circle, size: 56, color: Colors.green),
                   const SizedBox(height: 14),
-                  const Text(
+                  const AppText(
                     'Offer Accepted!',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 20),
-                  Text('📍 ${b?['pickup_address'] ?? ''}'),
+                  AppText('📍 ${b?['pickup_address'] ?? ''}'),
                   const SizedBox(height: 20),
                   Row(
                     children: [

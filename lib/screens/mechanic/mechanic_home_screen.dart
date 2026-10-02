@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/models/user_role.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/bookings_provider.dart';
 import '../../cores/providers/mechanic_stats_provider.dart';
+import '../../cores/providers/mechanic_rating_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_atoms.dart';
 import '../../widgets/app_buttons.dart';
@@ -33,6 +36,35 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
     final profile = ref.read(currentUserProfileProvider);
     if (profile.isVerified || profile.verificationStatus == 'approved') {
       _hasContinuedToDashboard = true;
+      if ((profile.specialization?.trim().isEmpty ?? true) ||
+          profile.experienceYears == null) {
+        Future.delayed(const Duration(seconds: 5), () {
+          if (!mounted) return;
+          showDialog<void>(
+            context: context,
+            barrierDismissible: true,
+            builder: (dialogContext) => AlertDialog(
+              title: const AppText('Complete Your Profile'),
+              content: const AppText(
+                'Add your specialization and years of experience to help customers choose the right mechanic for their vehicle.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const AppText('Later'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    setState(() => _navIndex = 3);
+                  },
+                  child: const AppText('Complete Profile'),
+                ),
+              ],
+            ),
+          );
+        });
+      }
     }
   }
 
@@ -43,6 +75,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
 
     final isOnline = ref.watch(mechanicOnlineStatusProvider);
     final statsAsync = ref.watch(mechanicStatsProvider);
+    final ratingAsync = ref.watch(mechanicRatingProvider(userProfile.id));
     final stats = statsAsync.valueOrNull ?? MechanicDashboardStats.empty;
 
     final openRequestsAsync = ref.watch(openRequestsProvider);
@@ -61,13 +94,13 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    AppText(
                       isOnline ? 'You are Online' : 'You are Offline',
                       style: Theme.of(
                         context,
                       ).textTheme.titleLarge?.copyWith(fontSize: 16),
                     ),
-                    Text(
+                    AppText(
                       isOnline ? '● Accepting requests' : '● Offline',
                       style: TextStyle(
                         fontSize: 11,
@@ -89,9 +122,11 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                     const SizedBox(width: 8),
                     Switch(
                       value: isOnline,
-                      onChanged: (v) => ref
-                          .read(mechanicOnlineStatusProvider.notifier)
-                          .state = v,
+                      onChanged: (v) =>
+                          ref
+                                  .read(mechanicOnlineStatusProvider.notifier)
+                                  .state =
+                              v,
                     ),
                     const SizedBox(width: 8),
                     GestureDetector(
@@ -102,13 +137,13 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                         backgroundImage:
                             userProfile.avatarUrl != null &&
                                 userProfile.avatarUrl!.isNotEmpty
-                            ? NetworkImage(userProfile.avatarUrl!)
+                            ? CachedNetworkImageProvider(userProfile.avatarUrl!)
                                   as ImageProvider
                             : null,
                         child:
                             (userProfile.avatarUrl == null ||
                                 userProfile.avatarUrl!.isEmpty)
-                            ? Text(
+                            ? AppText(
                                 userProfile.initials,
                                 style: TextStyle(
                                   fontSize: 11,
@@ -140,7 +175,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 ),
                 child: Column(
                   children: [
-                    Text(
+                    AppText(
                       "TOTAL EARNINGS",
                       style: TextStyle(
                         color: scheme.onPrimary.withValues(alpha: 0.75),
@@ -149,7 +184,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    AppText(
                       'PKR ${stats.totalEarnings.toStringAsFixed(0)}',
                       style: Theme.of(context).textTheme.headlineMedium
                           ?.copyWith(color: scheme.onPrimary, fontSize: 22),
@@ -158,7 +193,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
+                        AppText(
                           '${stats.completedJobs} Jobs Completed',
                           style: TextStyle(
                             color: scheme.onPrimary.withValues(alpha: 0.85),
@@ -166,7 +201,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                           ),
                         ),
                         const SizedBox(width: 16),
-                        Text(
+                        AppText(
                           '${stats.ongoingJobs} Ongoing',
                           style: TextStyle(
                             color: scheme.onPrimary.withValues(alpha: 0.85),
@@ -198,7 +233,9 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: StatMini(
-                    value: userProfile.rating.toStringAsFixed(1),
+                    value:
+                        ratingAsync.valueOrNull?.toStringAsFixed(1) ??
+                        userProfile.rating.toStringAsFixed(1),
                     label: 'Rating',
                   ),
                 ),
@@ -208,14 +245,14 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                const AppText(
                   'Recent Requests',
                   style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                 ),
                 if (isOnline)
                   GestureDetector(
                     onTap: () => setState(() => _navIndex = 1),
-                    child: Text(
+                    child: AppText(
                       'View all',
                       style: TextStyle(fontSize: 10.5, color: scheme.primary),
                     ),
@@ -226,7 +263,10 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
             if (!isOnline)
               AppCard(
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 20,
+                    horizontal: 12,
+                  ),
                   child: Column(
                     children: [
                       const Icon(
@@ -235,7 +275,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                         color: Colors.orange,
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      const AppText(
                         'You are currently offline',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
@@ -243,7 +283,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                         ),
                       ),
                       const SizedBox(height: 4),
-                      Text(
+                      AppText(
                         'Turn on your online status switch above to start receiving service requests.',
                         style: TextStyle(fontSize: 11, color: c.textMuted),
                         textAlign: TextAlign.center,
@@ -268,7 +308,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text(
+                      AppText(
                         'Searching for new requests...',
                         style: TextStyle(fontSize: 11.5, color: c.textMuted),
                       ),
@@ -292,7 +332,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                         ),
                       ),
                       const SizedBox(width: 10),
-                      Text(
+                      AppText(
                         'Searching for new requests...',
                         style: TextStyle(fontSize: 11.5, color: c.textMuted),
                       ),
@@ -309,7 +349,7 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Expanded(
-                          child: Text(
+                          child: AppText(
                             '⚙️ ${recentRequest['service_title'] ?? 'Service Request'}',
                             style: const TextStyle(
                               fontSize: 11.5,
@@ -318,14 +358,14 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                           ),
                         ),
                         if (recentRequest['budget_price'] != null)
-                          Text(
+                          AppText(
                             'PKR ${((recentRequest['budget_price'] as num?) ?? 0).toStringAsFixed(0)}',
                             style: TextStyle(fontSize: 9.5, color: c.textMuted),
                           ),
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text(
+                    AppText(
                       recentRequest['pickup_address']?.toString() ??
                           'Location unavailable',
                       style: TextStyle(fontSize: 9.5, color: c.textSecondary),
@@ -342,10 +382,10 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                                 : scheme.primary,
                           ),
                           const SizedBox(width: 3),
-                          Text(
+                          AppText(
                             recentRequest['is_within_range'] == false
-                                ? '${recentRequest['distance_km']} km away (Out of 5 km range)'
-                                : '${recentRequest['distance_km']} km away (Within 5 km range)',
+                                ? '${recentRequest['distance_km']} km away (Out of 8 km range)'
+                                : '${recentRequest['distance_km']} km away (Within 8 km range)',
                             style: TextStyle(
                               fontSize: 9.5,
                               color: recentRequest['is_within_range'] == false

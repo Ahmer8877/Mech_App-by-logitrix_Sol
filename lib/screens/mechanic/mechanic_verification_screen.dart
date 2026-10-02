@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/theme/app_theme.dart';
+import '../../utils/pakistan_input_formatters.dart';
 import '../../widgets/app_buttons.dart';
 import '../auth&role/role_select_screen.dart';
 import 'mechanic_home_screen.dart';
@@ -11,10 +14,7 @@ import 'mechanic_home_screen.dart';
 class MechanicVerificationScreen extends ConsumerStatefulWidget {
   final VoidCallback? onContinueToDashboard;
 
-  const MechanicVerificationScreen({
-    super.key,
-    this.onContinueToDashboard,
-  });
+  const MechanicVerificationScreen({super.key, this.onContinueToDashboard});
 
   @override
   ConsumerState<MechanicVerificationScreen> createState() =>
@@ -40,7 +40,7 @@ class _MechanicVerificationScreenState
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final profile = ref.read(authProvider).profile;
       if (profile != null && profile.phone.isNotEmpty) {
-        var initialPhone = profile.phone.trim();
+        var initialPhone = displayPakistanPhone(profile.phone.trim());
         if (initialPhone.startsWith('+92')) {
           initialPhone = initialPhone.substring(3);
         } else if (initialPhone.startsWith('0')) {
@@ -118,21 +118,16 @@ class _MechanicVerificationScreenState
   }
 
   Future<void> _submit() async {
-    String rawPhone = _phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
-    if (rawPhone.startsWith('0')) {
-      rawPhone = rawPhone.substring(1);
-    }
-    if (rawPhone.length != 10 || !rawPhone.startsWith('3')) {
+    final formattedPhone = normalizePakistanPhone(_phoneController.text.trim());
+    if (formattedPhone.isEmpty) {
       setState(
         () => _errorMessage =
-            'Please enter a valid 10-digit Pakistani phone number starting with 3 (e.g. 3001234567).',
+            'Please enter a valid 11-digit Pakistani mobile number (e.g. 03001234567).',
       );
       return;
     }
-    final formattedPhone = '+92$rawPhone';
-
-    final cnic = _cnicController.text.trim();
-    if (cnic.length < 10) {
+    final cnic = normalizePakistanCnic(_cnicController.text.trim());
+    if (cnic.isEmpty) {
       setState(() => _errorMessage = 'Please enter a valid CNIC number.');
       return;
     }
@@ -146,7 +141,8 @@ class _MechanicVerificationScreenState
     }
     if (_toolsPhotos.isEmpty) {
       setState(
-        () => _errorMessage = 'Please upload at least one workshop/tools photo.',
+        () =>
+            _errorMessage = 'Please upload at least one workshop/tools photo.',
       );
       return;
     }
@@ -168,7 +164,7 @@ class _MechanicVerificationScreenState
       setState(() => _resubmitting = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Verification documents submitted successfully!'),
+          content: AppText('Verification documents submitted successfully!'),
           backgroundColor: Colors.green,
         ),
       );
@@ -185,17 +181,16 @@ class _MechanicVerificationScreenState
     // Real-time active profile stream
     final liveProfile = user != null
         ? (ref.watch(activeProfileStreamProvider(user.id)).valueOrNull ??
-            authState.profile)
+              authState.profile)
         : authState.profile;
 
     final profile = liveProfile;
 
     // STATE 1: APPROVED / VERIFIED MECHANIC
-    if (profile != null && (profile.isVerified || profile.verificationStatus == 'approved')) {
+    if (profile != null &&
+        (profile.isVerified || profile.verificationStatus == 'approved')) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Verification Completed'),
-        ),
+        appBar: AppBar(title: const AppText('Verification Completed')),
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: Center(
@@ -216,13 +211,13 @@ class _MechanicVerificationScreenState
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                const AppText(
                   'Verification Approved! 🎉',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
-                Text(
+                AppText(
                   'Congratulations! Your mechanic account has been verified by the administrator. You can now start accepting service requests and sending offers.',
                   style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                   textAlign: TextAlign.center,
@@ -231,7 +226,9 @@ class _MechanicVerificationScreenState
                 PrimaryButton(
                   label: 'Continue to Dashboard',
                   onPressed: () async {
-                    await ref.read(authProvider.notifier).fetchUserProfile(profile.id);
+                    await ref
+                        .read(authProvider.notifier)
+                        .fetchUserProfile(profile.id);
                     if (widget.onContinueToDashboard != null) {
                       widget.onContinueToDashboard!();
                     } else {
@@ -262,9 +259,7 @@ class _MechanicVerificationScreenState
           : 'Documents were unclear or invalid.';
 
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Verification Declined'),
-        ),
+        appBar: AppBar(title: const AppText('Verification Declined')),
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: Center(
@@ -286,13 +281,13 @@ class _MechanicVerificationScreenState
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  const AppText(
                     'Verification Declined ❌',
                     style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
-                  Text(
+                  AppText(
                     'Your verification request was rejected by the admin.',
                     style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                     textAlign: TextAlign.center,
@@ -304,12 +299,14 @@ class _MechanicVerificationScreenState
                     decoration: BoxDecoration(
                       color: Colors.red.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                      border: Border.all(
+                        color: Colors.red.withValues(alpha: 0.3),
+                      ),
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        const AppText(
                           'REASON FOR DECLINE:',
                           style: TextStyle(
                             fontSize: 10,
@@ -319,7 +316,7 @@ class _MechanicVerificationScreenState
                           ),
                         ),
                         const SizedBox(height: 4),
-                        Text(
+                        AppText(
                           reason,
                           style: const TextStyle(
                             fontSize: 12,
@@ -345,7 +342,10 @@ class _MechanicVerificationScreenState
                   const SizedBox(height: 12),
                   TextButton(
                     onPressed: () => _logout(context),
-                    child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                    child: const AppText(
+                      'Logout',
+                      style: TextStyle(color: Colors.red),
+                    ),
                   ),
                 ],
               ),
@@ -361,9 +361,7 @@ class _MechanicVerificationScreenState
         profile.verificationStatus == 'pending' &&
         !_resubmitting) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Verification Under Review'),
-        ),
+        appBar: AppBar(title: const AppText('Verification Under Review')),
         body: Padding(
           padding: const EdgeInsets.all(24),
           child: Center(
@@ -384,19 +382,19 @@ class _MechanicVerificationScreenState
                   ),
                 ),
                 const SizedBox(height: 20),
-                const Text(
+                const AppText(
                   'Verification Under Review ⏳',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 10),
-                Text(
+                AppText(
                   'Your CNIC and workshop documents have been received! The admin team is currently reviewing your profile.',
                   style: TextStyle(fontSize: 12.5, color: c.textSecondary),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                AppText(
                   'CNIC: ${profile.cnic ?? 'Provided'}',
                   style: TextStyle(
                     fontSize: 12,
@@ -417,7 +415,7 @@ class _MechanicVerificationScreenState
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Text(
+                    AppText(
                       'Waiting for Admin approval in real-time...',
                       style: TextStyle(
                         fontSize: 12,
@@ -430,7 +428,10 @@ class _MechanicVerificationScreenState
                 const SizedBox(height: 20),
                 TextButton(
                   onPressed: () => _logout(context),
-                  child: const Text('Logout', style: TextStyle(color: Colors.red)),
+                  child: const AppText(
+                    'Logout',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
               ],
             ),
@@ -441,23 +442,21 @@ class _MechanicVerificationScreenState
 
     // STATE 4: VERIFICATION FORM INPUT
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Mechanic Verification'),
-      ),
+      appBar: AppBar(title: const AppText('Mechanic Verification')),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              AppText(
                 'Complete Your Verification',
                 style: Theme.of(
                   context,
                 ).textTheme.titleLarge?.copyWith(fontSize: 18),
               ),
               const SizedBox(height: 4),
-              Text(
+              AppText(
                 'Upload your CNIC, workshop photos, and profile photo to start accepting mechanic requests.',
                 style: TextStyle(fontSize: 11.5, color: c.textSecondary),
               ),
@@ -476,11 +475,14 @@ class _MechanicVerificationScreenState
                         backgroundImage: _profilePhoto != null
                             ? FileImage(File(_profilePhoto!.path))
                             : (profile?.avatarUrl != null &&
-                                    profile!.avatarUrl!.isNotEmpty
-                                ? NetworkImage(profile.avatarUrl!)
-                                    as ImageProvider
-                                : null),
-                        child: (_profilePhoto == null &&
+                                      profile!.avatarUrl!.isNotEmpty
+                                  ? CachedNetworkImageProvider(
+                                          profile.avatarUrl!,
+                                        )
+                                        as ImageProvider
+                                  : null),
+                        child:
+                            (_profilePhoto == null &&
                                 (profile?.avatarUrl == null ||
                                     profile!.avatarUrl!.isEmpty))
                             ? Icon(
@@ -506,7 +508,7 @@ class _MechanicVerificationScreenState
               const Center(
                 child: Padding(
                   padding: EdgeInsets.only(top: 6),
-                  child: Text(
+                  child: AppText(
                     'Tap to upload Profile Photo',
                     style: TextStyle(fontSize: 10, color: Colors.grey),
                   ),
@@ -515,7 +517,7 @@ class _MechanicVerificationScreenState
               const SizedBox(height: 20),
 
               // 2. Phone Number
-              const Text(
+              const AppText(
                 'PHONE NUMBER',
                 style: TextStyle(
                   fontSize: 10,
@@ -538,7 +540,7 @@ class _MechanicVerificationScreenState
                         color: c.borderStrong.withValues(alpha: 0.4),
                       ),
                     ),
-                    child: const Text(
+                    child: const AppText(
                       '🇵🇰 +92',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
@@ -551,11 +553,15 @@ class _MechanicVerificationScreenState
                     child: TextField(
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
+                      inputFormatters: [PakistanPhoneFormatter()],
                       maxLength: 11,
                       decoration: const InputDecoration(
                         hintText: '3001234567',
                         counterText: '',
-                        prefixIcon: Icon(Icons.phone_android_outlined, size: 18),
+                        prefixIcon: Icon(
+                          Icons.phone_android_outlined,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ),
@@ -564,7 +570,7 @@ class _MechanicVerificationScreenState
               const SizedBox(height: 20),
 
               // 3. CNIC Number
-              const Text(
+              const AppText(
                 'CNIC NUMBER',
                 style: TextStyle(
                   fontSize: 10,
@@ -584,7 +590,7 @@ class _MechanicVerificationScreenState
               const SizedBox(height: 20),
 
               // 4. CNIC Front & Back Photos
-              const Text(
+              const AppText(
                 'CNIC PHOTOS (FRONT & BACK)',
                 style: TextStyle(
                   fontSize: 10,
@@ -618,7 +624,7 @@ class _MechanicVerificationScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
+                  const AppText(
                     'WORKSHOP & TOOLS PHOTOS',
                     style: TextStyle(
                       fontSize: 10,
@@ -626,7 +632,7 @@ class _MechanicVerificationScreenState
                       letterSpacing: 0.5,
                     ),
                   ),
-                  Text(
+                  AppText(
                     '${_toolsPhotos.length} selected',
                     style: TextStyle(fontSize: 10, color: scheme.primary),
                   ),
@@ -655,7 +661,7 @@ class _MechanicVerificationScreenState
                         size: 20,
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      const AppText(
                         'Upload Workshop / Tools Photos',
                         style: TextStyle(
                           fontSize: 12,
@@ -698,9 +704,11 @@ class _MechanicVerificationScreenState
                   decoration: BoxDecoration(
                     color: Colors.red.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: Colors.red.withValues(alpha: 0.3),
+                    ),
                   ),
-                  child: Text(
+                  child: AppText(
                     _errorMessage ?? authState.errorMessage!,
                     style: const TextStyle(color: Colors.red, fontSize: 11.5),
                   ),
@@ -769,7 +777,7 @@ class _ImagePickerBox extends StatelessWidget {
                     size: 22,
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  AppText(
                     label,
                     style: const TextStyle(
                       fontSize: 11,
@@ -787,11 +795,7 @@ class _ImagePickerBox extends StatelessWidget {
                     color: Colors.green,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Colors.white,
-                    size: 14,
-                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 14),
                 ),
               ),
       ),

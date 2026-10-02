@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../cores/providers/notifications_provider.dart';
@@ -41,7 +42,7 @@ class NotificationIconButton extends ConsumerWidget {
                     minWidth: 16,
                     minHeight: 16,
                   ),
-                  child: Text(
+                  child: AppText(
                     unreadCount > 9 ? '9+' : '$unreadCount',
                     style: const TextStyle(
                       color: Colors.white,
@@ -92,7 +93,7 @@ class AccentButton extends StatelessWidget {
             context,
           ).textTheme.titleMedium?.copyWith(fontSize: 14),
         ),
-        child: Text(label),
+        child: AppText(label),
       ),
     );
   }
@@ -130,7 +131,7 @@ class PrimaryButton extends StatelessWidget {
             context,
           ).textTheme.titleMedium?.copyWith(fontSize: 14),
         ),
-        child: Text(label),
+        child: AppText(label),
       ),
     );
   }
@@ -187,7 +188,7 @@ class OutlineActionButton extends StatelessWidget {
               const SizedBox(width: 6),
             ],
             Flexible(
-              child: Text(
+              child: AppText(
                 label,
                 overflow: TextOverflow.ellipsis,
                 softWrap: false,
@@ -221,7 +222,7 @@ class SmallAccentButton extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5),
       ),
-      child: Text(label),
+      child: AppText(label),
     );
   }
 }

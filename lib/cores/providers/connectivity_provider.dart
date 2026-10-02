@@ -10,9 +10,9 @@ final internetConnectedProvider = StreamProvider<bool>((ref) async* {
     bool isConnected = true;
     if (!kIsWeb) {
       try {
-        final result = await InternetAddress.lookup('google.com').timeout(
-          const Duration(seconds: 3),
-        );
+        final result = await InternetAddress.lookup(
+          'google.com',
+        ).timeout(const Duration(seconds: 3));
         isConnected = result.isNotEmpty && result[0].rawAddress.isNotEmpty;
       } catch (_) {
         isConnected = false;

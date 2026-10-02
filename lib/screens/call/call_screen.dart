@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 
 import '../../cores/theme/app_theme.dart';
 
@@ -69,7 +70,7 @@ class _CallScreenState extends State<CallScreen> {
               CircleAvatar(
                 radius: 46,
                 backgroundColor: scheme.onPrimary.withValues(alpha: 0.15),
-                child: Text(
+                child: AppText(
                   widget.initials,
                   style: TextStyle(
                     fontSize: 22,
@@ -79,7 +80,7 @@ class _CallScreenState extends State<CallScreen> {
                 ),
               ),
               const SizedBox(height: 18),
-              Text(
+              AppText(
                 widget.name,
                 style: TextStyle(
                   color: scheme.onPrimary,
@@ -88,7 +89,7 @@ class _CallScreenState extends State<CallScreen> {
                 ),
               ),
               const SizedBox(height: 6),
-              Text(
+              AppText(
                 _connected ? _durationLabel : 'Calling ${widget.subtitle}...',
                 style: TextStyle(
                   color: scheme.onPrimary.withValues(alpha: 0.7),

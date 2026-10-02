@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/vehicles_provider.dart';
 import '../../cores/providers/booking_draft_provider.dart';
@@ -36,8 +37,8 @@ class SelectVehicleScreen extends ConsumerWidget {
                 data: (vehicles) {
                   if (vehicles.isEmpty) {
                     return Center(
-                      child: Text(
-                        'Pehle ek vehicle add karein.',
+                      child: AppText(
+                        'Please add a vehicle first.',
                         style: TextStyle(color: c.textMuted, fontSize: 12),
                       ),
                     );
@@ -95,14 +96,14 @@ class SelectVehicleScreen extends ConsumerWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    AppText(
                                       vehicle.model,
                                       style: const TextStyle(
                                         fontSize: 12.5,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Text(
+                                    AppText(
                                       vehicle.plate,
                                       style: TextStyle(
                                         fontSize: 10.5,
@@ -157,7 +158,7 @@ class SelectVehicleScreen extends ConsumerWidget {
                 ),
                 side: BorderSide(color: c.borderStrong),
               ),
-              child: const Text('+ Add New Vehicle'),
+              child: const AppText('+ Add New Vehicle'),
             ),
             const SizedBox(height: 10),
             AccentButton(
@@ -192,9 +193,9 @@ class _ErrorState extends StatelessWidget {
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(message),
+        AppText(message),
         const SizedBox(height: 8),
-        TextButton(onPressed: onRetry, child: const Text('Retry')),
+        TextButton(onPressed: onRetry, child: const AppText('Retry')),
       ],
     ),
   );

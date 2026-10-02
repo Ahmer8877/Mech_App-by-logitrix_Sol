@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'app_text.dart';
 
 import '../cores/theme/app_theme.dart';
 
@@ -14,7 +15,7 @@ class RadarSearchWidget extends StatefulWidget {
   const RadarSearchWidget({
     super.key,
     this.title = 'Finding Nearby Mechanics',
-    this.subtitle = 'Broadcasting request within 5 km range...',
+    this.subtitle = 'Broadcasting request within 8 km range...',
     this.onCancel,
   });
 
@@ -105,7 +106,7 @@ class _RadarSearchWidgetState extends State<RadarSearchWidget>
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
+              AppText(
                 widget.title,
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
@@ -117,7 +118,7 @@ class _RadarSearchWidgetState extends State<RadarSearchWidget>
           const SizedBox(height: 6),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
-            child: Text(
+            child: AppText(
               widget.subtitle,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: colors.textSecondary),
@@ -143,8 +144,8 @@ class _RadarSearchWidgetState extends State<RadarSearchWidget>
                   ),
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Searching within 5 km...',
+                AppText(
+                  'Searching within 8 km...',
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -159,7 +160,7 @@ class _RadarSearchWidgetState extends State<RadarSearchWidget>
             TextButton.icon(
               onPressed: widget.onCancel,
               icon: const Icon(Icons.close, size: 16),
-              label: const Text('Cancel Request'),
+              label: const AppText('Cancel Request'),
               style: TextButton.styleFrom(foregroundColor: colors.textMuted),
             ),
           ],

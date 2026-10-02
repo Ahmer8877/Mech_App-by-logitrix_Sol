@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   phone_number TEXT,
   email TEXT,
   avatar_url TEXT,
+  specialization TEXT,
+  experience_years INTEGER,
   role TEXT NOT NULL DEFAULT 'customer' CHECK (role IN ('customer', 'mechanic', 'admin')),
   cnic_number TEXT,
   is_verified BOOLEAN NOT NULL DEFAULT FALSE, -- Mechanic verification status (Admin approved)
@@ -746,7 +748,7 @@ BEGIN
     (SELECT ROUND(AVG(r.rating)::numeric, 2)
      FROM public.reviews r
      WHERE r.mechanic_id = v_mechanic),
-    5.0
+    0.0
   )
   WHERE id = v_mechanic
     AND role = 'mechanic';
@@ -758,7 +760,7 @@ BEGIN
       (SELECT ROUND(AVG(r.rating)::numeric, 2)
        FROM public.reviews r
        WHERE r.mechanic_id = v_old_mechanic),
-      5.0
+      0.0
     )
     WHERE id = v_old_mechanic
       AND role = 'mechanic';
@@ -817,6 +819,20 @@ BEGIN
       AND tablename = 'profiles'
   ) THEN
     ALTER PUBLICATION supabase_realtime ADD TABLE public.profiles;
+  END IF;
+END $$;
+
+-- Reviews must be in Supabase Realtime so rating/profile screens update
+-- immediately after a review is created, edited, or deleted.
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'reviews'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.reviews;
   END IF;
 END $$;
 
@@ -988,3 +1004,84 @@ $$;
 REVOKE ALL ON FUNCTION public.prepare_new_social_mechanic() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.prepare_new_social_mechanic() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.is_verified_mechanic() TO authenticated;
+
+
+-- ---------------------------------------------------------------------
+-- MECHX PROFILE / LANGUAGE / ROLE SAFETY PATCH (idempotent)
+-- ---------------------------------------------------------------------
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS specialization TEXT;
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS experience_years INTEGER;
+
+-- Existing accounts must never change portal role merely because a different
+-- login portal was selected. New social mechanics are prepared through the
+-- existing SECURITY DEFINER flow; login code only reads the stored role.
+
+
+-- =====================================================================
+-- RATING + REALTIME SAFE PATCH (2026-10-01)
+-- Run this section on an existing Supabase database if the full schema
+-- was already installed. It is idempotent and does not delete user data.
+-- =====================================================================
+ALTER TABLE public.reviews REPLICA IDENTITY FULL;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'reviews'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.reviews;
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.recalculate_mechanic_rating()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_mechanic UUID;
+  v_old_mechanic UUID;
+BEGIN
+  v_mechanic := CASE WHEN TG_OP = 'DELETE' THEN OLD.mechanic_id ELSE NEW.mechanic_id END;
+  v_old_mechanic := CASE WHEN TG_OP = 'UPDATE' THEN OLD.mechanic_id ELSE NULL END;
+  PERFORM set_config('app.allow_server_profile_fields', 'on', true);
+
+  UPDATE public.profiles
+  SET rating = COALESCE(
+    (SELECT ROUND(AVG(r.rating)::numeric, 2)
+     FROM public.reviews r
+     WHERE r.mechanic_id = v_mechanic),
+    0.0
+  )
+  WHERE id = v_mechanic AND role = 'mechanic';
+
+  IF v_old_mechanic IS NOT NULL AND v_old_mechanic IS DISTINCT FROM v_mechanic THEN
+    UPDATE public.profiles
+    SET rating = COALESCE(
+      (SELECT ROUND(AVG(r.rating)::numeric, 2)
+       FROM public.reviews r
+       WHERE r.mechanic_id = v_old_mechanic),
+      0.0
+    )
+    WHERE id = v_old_mechanic AND role = 'mechanic';
+  END IF;
+
+  RETURN COALESCE(NEW, OLD);
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS on_review_change_update_rating ON public.reviews;
+CREATE TRIGGER on_review_change_update_rating
+AFTER INSERT OR UPDATE OR DELETE ON public.reviews
+FOR EACH ROW EXECUTE FUNCTION public.recalculate_mechanic_rating();
+
+UPDATE public.profiles p
+SET rating = COALESCE(
+  (SELECT ROUND(AVG(r.rating)::numeric, 2)
+   FROM public.reviews r WHERE r.mechanic_id = p.id),
+  0.0
+)
+WHERE p.role = 'mechanic';
+
+UPDATE public.profiles SET rating = 0 WHERE role <> 'mechanic';

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../cores/providers/auth_provider.dart';
+import '../../cores/config/service_radius.dart';
 import '../../cores/providers/bookings_provider.dart';
 import '../../cores/providers/offers_provider.dart';
 import '../../cores/repositories/live_location_repository.dart';
@@ -15,6 +17,7 @@ class SendOfferScreen extends ConsumerStatefulWidget {
 }
 
 class _SendOfferScreenState extends ConsumerState<SendOfferScreen> {
+  final _formKey = GlobalKey<FormState>();
   final price = TextEditingController(),
       time = TextEditingController(text: '30 min'),
       message = TextEditingController();
@@ -30,7 +33,9 @@ class _SendOfferScreenState extends ConsumerState<SendOfferScreen> {
   Future<void> send() async {
     final uid = ref.read(authProvider).user?.id;
     final p = double.tryParse(price.text.trim());
-    if (uid == null || p == null || p <= 0) return;
+    if (uid == null) return;
+    if (!_formKey.currentState!.validate()) return;
+    if (p == null || p <= 0) return;
     setState(() => saving = true);
     try {
       final rawBooking = await ref
@@ -48,13 +53,13 @@ class _SendOfferScreenState extends ConsumerState<SendOfferScreen> {
             reqLat,
             reqLng,
           );
-          if (distMeters > 5000.0) {
+          if (distMeters > mechanicServiceRadiusMeters) {
             final distKm = (distMeters / 1000.0).toStringAsFixed(1);
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    'Aap customer se $distKm km door hain. Offer sirf 5 km range ke andar bhej sakte hain.',
+                  content: AppText(
+                    'You are $distKm km away from the customer. Offers can only be sent within an 8 km service range.',
                   ),
                   backgroundColor: Colors.red,
                 ),
@@ -80,7 +85,7 @@ class _SendOfferScreenState extends ConsumerState<SendOfferScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('$e')));
+        ).showSnackBar(SnackBar(content: AppText('$e')));
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -91,47 +96,59 @@ class _SendOfferScreenState extends ConsumerState<SendOfferScreen> {
   Widget build(BuildContext context) {
     final b = ref.watch(bookingDetailsProvider(widget.bookingId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Send Your Offer')),
-      body: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            b.when(
-              loading: () => const SizedBox(),
-              error: (_, _) => const SizedBox(),
-              data: (x) => Text(
-                'Customer budget: PKR ${((x?['budget_price'] as num?) ?? 0).toStringAsFixed(0)}',
+      appBar: AppBar(title: const AppText('Send Your Offer')),
+      body: Form(
+        key: _formKey,
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              b.when(
+                loading: () => const SizedBox(),
+                error: (_, _) => const SizedBox(),
+                data: (x) => AppText(
+                  'Customer budget: PKR ${((x?['budget_price'] as num?) ?? 0).toStringAsFixed(0)}',
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: price,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: 'Your offer price',
-                prefixText: 'PKR ',
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: price,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Your offer price *',
+                  prefixText: 'PKR ',
+                ),
+                validator: (value) {
+                  final text = value?.trim() ?? '';
+                  final amount = double.tryParse(text);
+                  if (text.isEmpty) return 'Offer price is required';
+                  if (amount == null || amount <= 0) {
+                    return 'Enter a valid offer price';
+                  }
+                  return null;
+                },
               ),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: time,
-              decoration: const InputDecoration(labelText: 'Estimated time'),
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: message,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: 'Message (optional)',
+              const SizedBox(height: 14),
+              TextField(
+                controller: time,
+                decoration: const InputDecoration(labelText: 'Estimated time'),
               ),
-            ),
-            const Spacer(),
-            AccentButton(
-              label: saving ? 'Sending...' : 'Send Offer',
-              onPressed: saving ? null : send,
-            ),
-          ],
+              const SizedBox(height: 14),
+              TextField(
+                controller: message,
+                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Message (optional)',
+                ),
+              ),
+              const Spacer(),
+              AccentButton(
+                label: saving ? 'Sending...' : 'Send Offer',
+                onPressed: saving ? null : send,
+              ),
+            ],
+          ),
         ),
       ),
     );

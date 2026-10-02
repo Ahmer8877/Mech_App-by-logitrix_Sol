@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cores/providers/bookings_provider.dart';
@@ -17,22 +18,22 @@ class MechanicBookingsScreen extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(
+        title: const AppText(
           'Cancel Booking?',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        content: const Text(
+        content: const AppText(
           'Are you sure you want to cancel this booking? The customer will be notified.',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('No'),
+            child: const AppText('No'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Yes, Cancel'),
+            child: const AppText('Yes, Cancel'),
           ),
         ],
       ),
@@ -44,13 +45,13 @@ class MechanicBookingsScreen extends ConsumerWidget {
         ref.invalidate(mechanicBookingsProvider);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Booking cancelled successfully.')),
+            const SnackBar(content: AppText('Booking cancelled successfully.')),
           );
         }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to cancel booking: $e')),
+            SnackBar(content: AppText('Failed to cancel booking: $e')),
           );
         }
       }
@@ -62,13 +63,13 @@ class MechanicBookingsScreen extends ConsumerWidget {
     final bookings = ref.watch(mechanicBookingsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Bookings')),
+      appBar: AppBar(title: const AppText('My Bookings')),
       body: bookings.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('$error')),
+        error: (error, _) => Center(child: AppText('$error')),
         data: (items) {
           if (items.isEmpty) {
-            return const Center(child: Text('No bookings yet.'));
+            return const Center(child: AppText('No bookings yet.'));
           }
 
           return RefreshIndicator(
@@ -92,13 +93,13 @@ class MechanicBookingsScreen extends ConsumerWidget {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
+                                AppText(
                                   booking.service,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                                Text(
+                                AppText(
                                   booking.status,
                                   style: TextStyle(
                                     fontSize: 10,
@@ -106,7 +107,7 @@ class MechanicBookingsScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 if (booking.address.isNotEmpty)
-                                  Text(
+                                  AppText(
                                     booking.address,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -122,7 +123,9 @@ class MechanicBookingsScreen extends ConsumerWidget {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
                             children: [
-                              Text('PKR ${booking.price.toStringAsFixed(0)}'),
+                              AppText(
+                                'PKR ${booking.price.toStringAsFixed(0)}',
+                              ),
                             ],
                           ),
                         ],
@@ -141,7 +144,7 @@ class MechanicBookingsScreen extends ConsumerWidget {
                                 ),
                               ),
                               icon: const Icon(Icons.map_outlined, size: 14),
-                              label: const Text(
+                              label: const AppText(
                                 'Open Map',
                                 style: TextStyle(fontSize: 11),
                               ),
@@ -155,7 +158,7 @@ class MechanicBookingsScreen extends ConsumerWidget {
                                 size: 14,
                                 color: context.colors.danger,
                               ),
-                              label: Text(
+                              label: AppText(
                                 'Cancel',
                                 style: TextStyle(
                                   fontSize: 11,

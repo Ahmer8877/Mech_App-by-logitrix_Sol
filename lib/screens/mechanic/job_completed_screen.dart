@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../cores/providers/bookings_provider.dart';
@@ -84,10 +85,10 @@ class _JobCompletedScreenState extends ConsumerState<JobCompletedScreen>
           SafeArea(
             child: booking.when(
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('$error')),
+              error: (error, _) => Center(child: AppText('$error')),
               data: (data) {
                 if (data == null) {
-                  return const Center(child: Text('Booking not found.'));
+                  return const Center(child: AppText('Booking not found.'));
                 }
 
                 final rawAmount = data['agreed_price'] ?? data['budget_price'];
@@ -121,13 +122,13 @@ class _JobCompletedScreenState extends ConsumerState<JobCompletedScreen>
                         ),
                       ),
                       const SizedBox(height: 18),
-                      Text(
+                      AppText(
                         'Job Completed! 🎉',
                         style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      Text(
+                      AppText(
                         'Customer confirmed payment & rated your service',
                         style: TextStyle(
                           fontSize: 11.5,
@@ -151,8 +152,8 @@ class _JobCompletedScreenState extends ConsumerState<JobCompletedScreen>
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Payment Earned:'),
-                                Text(
+                                const AppText('Payment Earned:'),
+                                AppText(
                                   'PKR ${amount.toStringAsFixed(0)}',
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
@@ -165,8 +166,8 @@ class _JobCompletedScreenState extends ConsumerState<JobCompletedScreen>
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Payment Method:'),
-                                Text(
+                                const AppText('Payment Method:'),
+                                AppText(
                                   method,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w600,

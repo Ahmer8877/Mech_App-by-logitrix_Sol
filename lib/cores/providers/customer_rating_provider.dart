@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/supabase_config.dart';
 import 'auth_provider.dart';
@@ -40,13 +41,49 @@ final customerRatingProvider = StreamProvider.autoDispose<double?>((
 
   yield await loadAvg();
 
+  // Realtime updates the number immediately; polling keeps it fresh when a
+  // browser/device temporarily cannot maintain the Realtime WebSocket.
+  final realtime = supabase
+      .from('reviews')
+      .stream(primaryKey: ['id'])
+      .eq('customer_id', userId)
+      .map<void>((_) {});
+  final polling = Stream<void>.periodic(const Duration(seconds: 5));
+
   try {
-    await for (final _
-        in supabase
-            .from('reviews')
-            .stream(primaryKey: ['id'])
-            .eq('customer_id', userId)) {
+    await for (final _ in realtime.mergeWith(polling)) {
       yield await loadAvg();
     }
-  } catch (_) {}
+  } catch (_) {
+    await for (final _ in polling) {
+      yield await loadAvg();
+    }
+  }
 });
+
+extension _CustomerRatingStreamMerge<T> on Stream<T> {
+  Stream<T> mergeWith(Stream<T> other) {
+    final controller = StreamController<T>();
+    late StreamSubscription<T> first;
+    late StreamSubscription<T> second;
+    var closed = false;
+
+    void close() {
+      if (closed) return;
+      closed = true;
+      controller.close();
+    }
+
+    first = listen(controller.add, onError: controller.addError, onDone: close);
+    second = other.listen(
+      controller.add,
+      onError: controller.addError,
+      onDone: close,
+    );
+    controller.onCancel = () async {
+      await first.cancel();
+      await second.cancel();
+    };
+    return controller.stream;
+  }
+}

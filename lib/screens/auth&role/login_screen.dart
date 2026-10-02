@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/models/user_role.dart';
@@ -63,7 +64,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
+            content: AppText(
               'This account is registered as a $expectedRoleName. You cannot log into the $attemptedRoleName portal.',
             ),
             backgroundColor: Theme.of(context).colorScheme.error,
@@ -96,7 +97,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
+            content: AppText(
               authState.errorMessage ??
                   'Login failed. Please check your credentials.',
             ),
@@ -115,6 +116,26 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final authState = ref.read(authProvider);
       final profile = authState.profile;
       if (authState.user != null && profile != null) {
+        if (profile.role != widget.role) {
+          await ref.read(authProvider.notifier).logout();
+          if (!mounted) return;
+          final expected = profile.role == UserRole.mechanic
+              ? 'Mechanic'
+              : 'Customer';
+          final attempted = widget.role == UserRole.mechanic
+              ? 'Mechanic'
+              : 'Customer';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: AppText(
+                'This account is registered as a $expected. You cannot log into the $attempted portal.',
+              ),
+              backgroundColor: Theme.of(context).colorScheme.error,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+          return;
+        }
         final isMechanic = profile.role == UserRole.mechanic;
         final isApproved =
             profile.isVerified || profile.verificationStatus == 'approved';
@@ -125,8 +146,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             builder: (_) => isMechanic && !isApproved
                 ? const MechanicVerificationScreen()
                 : (isMechanic
-                    ? const MechanicHomeScreen()
-                    : const CustomerHomeScreen()),
+                      ? const MechanicHomeScreen()
+                      : const CustomerHomeScreen()),
           ),
           (route) => false,
         );
@@ -136,11 +157,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     }
 
     if (!mounted) return;
-    final message = ref.read(authProvider).errorMessage ??
+    final message =
+        ref.read(authProvider).errorMessage ??
         'Sign-in completed, but your profile is still loading. Please try again.';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: AppText(message)));
   }
 
   void _loginWithGoogle() async {
@@ -159,7 +181,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final message = ref.read(authProvider).errorMessage;
       if (message != null) {
         messenger.showSnackBar(
-          SnackBar(content: Text(message), backgroundColor: errorColor),
+          SnackBar(content: AppText(message), backgroundColor: errorColor),
         );
       }
     }
@@ -181,7 +203,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       final message = ref.read(authProvider).errorMessage;
       if (message != null) {
         messenger.showSnackBar(
-          SnackBar(content: Text(message), backgroundColor: errorColor),
+          SnackBar(content: AppText(message), backgroundColor: errorColor),
         );
       }
     }
@@ -203,7 +225,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                AppText(
                   widget.role == UserRole.customer
                       ? 'Customer Login'
                       : 'Mechanic Login',
@@ -271,7 +293,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         builder: (_) => const ForgotPasswordScreen(),
                       ),
                     ),
-                    child: Text(
+                    child: AppText(
                       'Forgot password?',
                       style: TextStyle(
                         fontSize: 11.5,
@@ -291,7 +313,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     Expanded(child: Divider(color: c.borderStrong)),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
-                      child: Text(
+                      child: AppText(
                         'or continue with',
                         style: TextStyle(fontSize: 10.5, color: c.textMuted),
                       ),
@@ -313,7 +335,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             color: Colors.white,
                           ),
                           alignment: Alignment.center,
-                          child: const Text(
+                          child: const AppText(
                             'G',
                             style: TextStyle(
                               color: Colors.red,
@@ -381,7 +403,7 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
+      child: AppText(
         text,
         style: TextStyle(
           fontSize: 9.5,

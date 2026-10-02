@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/bookings_provider.dart';
@@ -39,9 +40,9 @@ class OffersScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to accept offer: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: AppText('Failed to accept offer: $e')),
+        );
       }
     }
   }
@@ -55,9 +56,9 @@ class OffersScreen extends ConsumerWidget {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to cancel request: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: AppText('Failed to cancel request: $e')),
+        );
       }
     }
   }
@@ -72,14 +73,14 @@ class OffersScreen extends ConsumerWidget {
       body: offers.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) =>
-            Center(child: Text('Failed to load offers: $error')),
+            Center(child: AppText('Failed to load offers: $error')),
         data: (items) {
           if (items.isEmpty) {
             return Center(
               child: RadarSearchWidget(
                 title: 'Finding Nearby Mechanics',
                 subtitle:
-                    'Broadcasting request to mechanics within 5 km range...',
+                    'Broadcasting request to mechanics within 8 km range...',
                 onCancel: () => _cancelBooking(context, ref),
               ),
             );
@@ -113,8 +114,8 @@ class OffersScreen extends ConsumerWidget {
                     ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(
-                        'Radar active · Searching for more mechanics within 5 km',
+                      child: AppText(
+                        'Radar active · Searching for more mechanics within 8 km',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
@@ -125,7 +126,7 @@ class OffersScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-              Text(
+              AppText(
                 '${items.length} Offers Received',
                 style: TextStyle(fontSize: 11, color: context.colors.textMuted),
               ),
@@ -137,11 +138,11 @@ class OffersScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        AppText(
                           offer.mechanicName,
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        Text(
+                        AppText(
                           '⭐ ${offer.mechanicRating.toStringAsFixed(1)} · ${offer.estimatedTime}',
                           style: TextStyle(
                             color: context.colors.textMuted,
@@ -149,14 +150,14 @@ class OffersScreen extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(height: 6),
-                        Text(
+                        AppText(
                           'PKR ${offer.price.toStringAsFixed(0)}',
                           style: const TextStyle(fontWeight: FontWeight.bold),
                         ),
                         if ((offer.message ?? '').isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(top: 4),
-                            child: Text(
+                            child: AppText(
                               offer.message!,
                               style: const TextStyle(fontSize: 11),
                             ),

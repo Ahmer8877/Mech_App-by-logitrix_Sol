@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../cores/models/user_profile_model.dart';
@@ -7,6 +9,7 @@ import '../../cores/models/user_role.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
+import '../../utils/pakistan_input_formatters.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   final UserRole role;
@@ -31,13 +34,15 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final profile = ref.read(currentUserProfileProvider);
     _nameController = TextEditingController(text: profile.fullName);
     _phoneController = TextEditingController(
-      text: profile.phone.isNotEmpty ? profile.phone : '+92 300 1234567',
+      text: displayPakistanPhone(profile.phone),
     );
     _emailController = TextEditingController(text: profile.email);
     _specializationController = TextEditingController(
-      text: 'Engine, Battery, AC',
+      text: profile.specialization ?? '',
     );
-    _experienceController = TextEditingController(text: '5');
+    _experienceController = TextEditingController(
+      text: profile.experienceYears?.toString() ?? '',
+    );
   }
 
   @override
@@ -79,12 +84,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         if (uploadedUrl != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Compressed profile picture saved successfully!'),
+              content: AppText(
+                'Compressed profile picture saved successfully!',
+              ),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Profile picture saved locally.')),
+            const SnackBar(content: AppText('Profile picture saved locally.')),
           );
         }
       }
@@ -93,7 +100,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       setState(() => _isUploadingAvatar = false);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Could not pick image')));
+      ).showSnackBar(const SnackBar(content: AppText('Could not pick image')));
     }
   }
 
@@ -156,7 +163,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                           _pickAvatar();
                         },
                         icon: const Icon(Icons.photo_camera, size: 18),
-                        label: const Text('Edit / Change Picture'),
+                        label: const AppText('Edit / Change Picture'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Theme.of(
                             context,
@@ -188,7 +195,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
-      child: Text(
+      child: AppText(
         profile.initials,
         style: TextStyle(
           fontSize: 64,
@@ -200,32 +207,54 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 
   void _saveProfile() async {
+    final profile = ref.read(currentUserProfileProvider);
+    final isMechanic =
+        widget.role == UserRole.mechanic || profile.role == UserRole.mechanic;
     final name = _nameController.text.trim();
-    final phone = _phoneController.text.trim();
+    final phone = normalizePakistanPhone(_phoneController.text.trim());
     final email = _emailController.text.trim();
+
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: AppText(
+            'Please enter a valid 11-digit Pakistani mobile number',
+          ),
+        ),
+      );
+      return;
+    }
 
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Name cannot be empty')));
+      ).showSnackBar(const SnackBar(content: AppText('Name cannot be empty')));
       return;
     }
 
     final success = await ref
         .read(authProvider.notifier)
-        .updateProfile(fullName: name, phone: phone, email: email);
+        .updateProfile(
+          fullName: name,
+          phone: phone,
+          email: email,
+          specialization: isMechanic ? _specializationController.text : null,
+          experienceYears: isMechanic
+              ? int.tryParse(_experienceController.text.trim())
+              : null,
+        );
 
     if (!mounted) return;
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile updated successfully!')),
+        const SnackBar(content: AppText('Profile updated successfully!')),
       );
       Navigator.of(context).pop();
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Failed to update profile. Please try again.'),
+          content: const AppText('Failed to update profile. Please try again.'),
           backgroundColor: Theme.of(context).colorScheme.error,
         ),
       );
@@ -243,7 +272,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile', style: TextStyle(fontSize: 15)),
+        title: const AppText('Edit Profile', style: TextStyle(fontSize: 15)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(18),
@@ -260,7 +289,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         ? FileImage(File(_selectedImage!.path))
                         : (profile.avatarUrl != null &&
                                   profile.avatarUrl!.isNotEmpty
-                              ? NetworkImage(profile.avatarUrl!)
+                              ? CachedNetworkImageProvider(profile.avatarUrl!)
                                     as ImageProvider
                               : null),
                     child: (_isUploadingAvatar)
@@ -268,7 +297,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                         : (_selectedImage == null &&
                                   (profile.avatarUrl == null ||
                                       profile.avatarUrl!.isEmpty)
-                              ? Text(
+                              ? AppText(
                                   profile.initials,
                                   style: TextStyle(
                                     fontSize: 22,
@@ -316,7 +345,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           TextField(
             controller: _phoneController,
             keyboardType: TextInputType.phone,
+            inputFormatters: [PakistanPhoneFormatter()],
             decoration: const InputDecoration(
+              hintText: 'e.g. +92 300 0000000',
               prefixIcon: Icon(Icons.phone_outlined, size: 20),
             ),
           ),
@@ -370,7 +401,7 @@ class _Label extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
+      child: AppText(
         text,
         style: TextStyle(
           fontSize: 9.5,

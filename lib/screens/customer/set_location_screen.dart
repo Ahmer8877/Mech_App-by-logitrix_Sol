@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -37,7 +38,7 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
     if (userId == null || draft.vehicleId == null || draft.serviceId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please select a vehicle and service first.'),
+          content: AppText('Please select a vehicle and service first.'),
         ),
       );
       return;
@@ -49,7 +50,7 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
     if (matchingServices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Selected service is no longer available.'),
+          content: AppText('Selected service is no longer available.'),
         ),
       );
       return;
@@ -62,14 +63,14 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
 
     if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter pickup address')),
+        const SnackBar(content: AppText('Please enter pickup address')),
       );
       return;
     }
 
     if (budget <= 0) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid budget.')),
+        const SnackBar(content: AppText('Please enter a valid budget.')),
       );
       return;
     }
@@ -102,9 +103,9 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Request create nahi hui: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: AppText('Could not create the request: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -161,6 +162,22 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
     }
   }
 
+  Future<void> _openLocationSettings() async {
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.deniedForever) {
+      await Geolocator.openAppSettings();
+    } else {
+      await Geolocator.openLocationSettings();
+    }
+    // Re-check immediately after returning so the map can recover without leaving the screen.
+    for (var i = 0; i < 6; i++) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return;
+      await _loadCurrentLocation();
+      if (_currentPosition != null) return;
+    }
+  }
+
   @override
   void dispose() {
     _addressController.dispose();
@@ -184,6 +201,16 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
               child: Stack(
                 children: [
                   LiveGoogleMap(
+                    currentLocation: _currentPosition == null
+                        ? null
+                        : LatLng(
+                            _currentPosition!.latitude,
+                            _currentPosition!.longitude,
+                          ),
+                    locationServiceEnabled:
+                        _locationError != 'GPS is turned off.',
+                    locationPermissionDenied: _locationError != null,
+                    onEnableLocation: _openLocationSettings,
                     customerLocation: _currentPosition == null
                         ? null
                         : LatLng(
@@ -202,7 +229,7 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
                             horizontal: 10,
                             vertical: 7,
                           ),
-                          child: Text('Getting your location...'),
+                          child: AppText('Getting your location...'),
                         ),
                       ),
                     ),
@@ -214,7 +241,7 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
                       child: Card(
                         child: Padding(
                           padding: const EdgeInsets.all(10),
-                          child: Text(
+                          child: AppText(
                             _locationError!,
                             textAlign: TextAlign.center,
                           ),

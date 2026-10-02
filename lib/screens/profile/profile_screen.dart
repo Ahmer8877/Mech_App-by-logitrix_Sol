@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/models/user_role.dart';
 import '../../cores/providers/auth_provider.dart';
+import '../../cores/providers/language_provider.dart';
 import '../../cores/providers/theme_provider.dart';
 import '../../cores/providers/vehicles_provider.dart';
 import '../../cores/providers/bookings_provider.dart';
 import '../../cores/providers/mechanic_stats_provider.dart';
 import '../../cores/providers/customer_rating_provider.dart';
+import '../../cores/providers/mechanic_rating_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_atoms.dart';
 import '../auth&role/role_select_screen.dart';
@@ -38,12 +42,15 @@ class ProfileScreen extends ConsumerWidget {
     final mechanicStatsAsync = isMechanic
         ? ref.watch(mechanicStatsProvider)
         : null;
+    final mechanicRatingAsync = isMechanic
+        ? ref.watch(mechanicRatingProvider(userProfile.id))
+        : null;
     final mechanicStats =
         mechanicStatsAsync?.valueOrNull ?? MechanicDashboardStats.empty;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile', style: TextStyle(fontSize: 15)),
+        title: const AppText('Profile', style: TextStyle(fontSize: 15)),
       ),
       body: ListView(
         padding: const EdgeInsets.all(18),
@@ -56,12 +63,13 @@ class ProfileScreen extends ConsumerWidget {
                 backgroundImage:
                     userProfile.avatarUrl != null &&
                         userProfile.avatarUrl!.isNotEmpty
-                    ? NetworkImage(userProfile.avatarUrl!) as ImageProvider
+                    ? CachedNetworkImageProvider(userProfile.avatarUrl!)
+                          as ImageProvider
                     : null,
                 child:
                     (userProfile.avatarUrl == null ||
                         userProfile.avatarUrl!.isEmpty)
-                    ? Text(
+                    ? AppText(
                         userProfile.initials,
                         style: TextStyle(
                           fontSize: 16,
@@ -72,39 +80,44 @@ class ProfileScreen extends ConsumerWidget {
                     : null,
               ),
               const SizedBox(width: 14),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    userProfile.fullName,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppText(
+                      userProfile.fullName,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                  Text(
-                    userProfile.phone.isNotEmpty
-                        ? userProfile.phone
-                        : userProfile.email,
-                    style: TextStyle(fontSize: 11, color: c.textMuted),
-                  ),
-                  if (isMechanic) ...[
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Icon(Icons.star, size: 12, color: c.accent),
-                        const SizedBox(width: 3),
-                        Text(
-                          '${userProfile.rating} · ${userProfile.totalJobs} jobs',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: c.textSecondary,
+                    AppText(
+                      userProfile.email.isNotEmpty
+                          ? userProfile.email
+                          : 'No email',
+                      style: TextStyle(fontSize: 11, color: c.textMuted),
+                      softWrap: true,
+                      maxLines: 2,
+                      overflow: TextOverflow.visible,
+                    ),
+                    if (isMechanic) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        children: [
+                          Icon(Icons.star, size: 12, color: c.accent),
+                          const SizedBox(width: 3),
+                          AppText(
+                            '${mechanicRatingAsync?.valueOrNull?.toStringAsFixed(1) ?? userProfile.rating.toStringAsFixed(1)} · ${userProfile.totalJobs} jobs',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: c.textSecondary,
+                            ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ],
           ),
@@ -129,7 +142,12 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: StatMini(
-                    value: '${userProfile.rating}',
+                    value: mechanicRatingAsync?.isLoading == true
+                        ? '…'
+                        : (mechanicRatingAsync?.valueOrNull?.toStringAsFixed(
+                                1,
+                              ) ??
+                              '0.0'),
                     label: 'Rating',
                   ),
                 ),
@@ -163,7 +181,7 @@ class ProfileScreen extends ConsumerWidget {
                         : (customerRatingAsync?.valueOrNull?.toStringAsFixed(
                                 1,
                               ) ??
-                              '—'),
+                              '0.0'),
                     label: 'Given Rating',
                   ),
                 ),
@@ -213,6 +231,40 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           _MenuTile(
+            icon: Icons.language_outlined,
+            label: 'Change Language',
+            onTap: () => showModalBottomSheet<void>(
+              context: context,
+              builder: (sheetContext) {
+                final current = ref.read(languageProvider).languageCode;
+                return SafeArea(
+                  child: RadioGroup<String>(
+                    groupValue: current,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      ref.read(languageProvider.notifier).setLanguage(value);
+                      Navigator.pop(sheetContext);
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const ListTile(title: AppText('Change Language')),
+                        const RadioListTile<String>(
+                          value: 'en',
+                          title: AppText('English'),
+                        ),
+                        const RadioListTile<String>(
+                          value: 'ur',
+                          title: AppText('Urdu'),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          _MenuTile(
             icon: Icons.support_agent_outlined,
             label: 'Help & Support',
             onTap: () => Navigator.of(context).push(
@@ -229,7 +281,10 @@ class ProfileScreen extends ConsumerWidget {
             ),
             child: SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Dark Mode', style: TextStyle(fontSize: 12.5)),
+              title: const AppText(
+                'Dark Mode',
+                style: TextStyle(fontSize: 12.5),
+              ),
               value: currentThemeMode == ThemeMode.dark,
               onChanged: (_) =>
                   ref.read(themeModeProvider.notifier).toggleTheme(),
@@ -246,7 +301,7 @@ class ProfileScreen extends ConsumerWidget {
               );
             },
             icon: Icon(Icons.logout, size: 16, color: c.danger),
-            label: Text('Logout', style: TextStyle(color: c.danger)),
+            label: AppText('Logout', style: TextStyle(color: c.danger)),
             style: OutlinedButton.styleFrom(
               minimumSize: const Size(double.infinity, 46),
               side: BorderSide(color: c.danger.withValues(alpha: 0.4)),
@@ -286,7 +341,7 @@ class _MenuTile extends StatelessWidget {
         ),
         child: Icon(icon, size: 16),
       ),
-      title: Text(label, style: const TextStyle(fontSize: 12.5)),
+      title: AppText(label, style: const TextStyle(fontSize: 12.5)),
       trailing: Icon(Icons.chevron_right, color: c.textMuted, size: 18),
     );
   }

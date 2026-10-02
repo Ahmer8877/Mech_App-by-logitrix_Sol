@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/vehicles_provider.dart';
 import '../../cores/theme/app_theme.dart';
@@ -49,17 +50,17 @@ class _MyVehiclesScreenState extends ConsumerState<MyVehiclesScreen> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('Failed to load vehicles.'),
+                          const AppText('Failed to load vehicles.'),
                           TextButton(
                             onPressed: () => ref.invalidate(vehiclesProvider),
-                            child: const Text('Retry'),
+                            child: const AppText('Retry'),
                           ),
                         ],
                       ),
                     )
                   : vehicles.isEmpty
                   ? Center(
-                      child: Text(
+                      child: AppText(
                         'No vehicles added yet',
                         style: TextStyle(color: c.textMuted, fontSize: 12),
                       ),
@@ -96,7 +97,7 @@ class _MyVehiclesScreenState extends ConsumerState<MyVehiclesScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    AppText(
                                       '${v.model} · ${v.plate}',
                                       style: const TextStyle(
                                         fontSize: 12,
@@ -104,7 +105,7 @@ class _MyVehiclesScreenState extends ConsumerState<MyVehiclesScreen> {
                                       ),
                                     ),
                                     if (isSelected)
-                                      Text(
+                                      AppText(
                                         'Default vehicle',
                                         style: TextStyle(
                                           fontSize: 9.5,
@@ -121,7 +122,7 @@ class _MyVehiclesScreenState extends ConsumerState<MyVehiclesScreen> {
                                                     )
                                                     .state =
                                                 v.id,
-                                        child: Text(
+                                        child: AppText(
                                           'Set as default',
                                           style: TextStyle(
                                             fontSize: 9.5,
@@ -170,7 +171,7 @@ class _MyVehiclesScreenState extends ConsumerState<MyVehiclesScreen> {
                 ),
                 side: BorderSide(color: c.borderStrong),
               ),
-              child: const Text('+ Add New Vehicle'),
+              child: const AppText('+ Add New Vehicle'),
             ),
           ],
         ),

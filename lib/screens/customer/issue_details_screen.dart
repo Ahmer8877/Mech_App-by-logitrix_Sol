@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -37,12 +38,12 @@ class _IssueDetailsScreenState extends ConsumerState<IssueDetailsScreen> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Take Photo'),
+              title: const AppText('Take Photo'),
               onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose from Gallery'),
+              title: const AppText('Choose from Gallery'),
               onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
             ),
           ],
@@ -65,7 +66,7 @@ class _IssueDetailsScreenState extends ConsumerState<IssueDetailsScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Failed to add photo: $e')));
+        ).showSnackBar(SnackBar(content: AppText('Failed to add photo: $e')));
       }
     }
   }
@@ -95,9 +96,9 @@ class _IssueDetailsScreenState extends ConsumerState<IssueDetailsScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to upload photos: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: AppText('Failed to upload photos: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -122,7 +123,7 @@ class _IssueDetailsScreenState extends ConsumerState<IssueDetailsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const StepProgress(total: 5, current: 3),
-            Text(
+            AppText(
               'DESCRIBE THE ISSUE',
               style: TextStyle(
                 fontSize: 9.5,
@@ -141,7 +142,7 @@ class _IssueDetailsScreenState extends ConsumerState<IssueDetailsScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            Text(
+            AppText(
               'ADD PHOTOS (OPTIONAL, MAX 3)',
               style: TextStyle(fontSize: 9.5, color: colors.textMuted),
             ),

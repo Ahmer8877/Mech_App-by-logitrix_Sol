@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/bookings_provider.dart';
 import '../../widgets/app_buttons.dart';
@@ -40,7 +41,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Payment update failed: $e')));
+        ).showSnackBar(SnackBar(content: AppText('Payment update failed: $e')));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -55,10 +56,10 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
       appBar: const FlowAppBar(title: 'Payment Method'),
       body: booking.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('$error')),
+        error: (error, _) => Center(child: AppText('$error')),
         data: (data) {
           if (data == null) {
-            return const Center(child: Text('Booking not found.'));
+            return const Center(child: AppText('Booking not found.'));
           }
 
           final rawAmount = data['agreed_price'] ?? data['budget_price'];
@@ -78,7 +79,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                       ].map((method) {
                         return DropdownMenuItem(
                           value: method,
-                          child: Text(method),
+                          child: AppText(method),
                         );
                       }).toList(),
                   onChanged: (value) {
@@ -89,8 +90,8 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Total Amount'),
-                    Text('PKR ${amount.toStringAsFixed(0)}'),
+                    const AppText('Total Amount'),
+                    AppText('PKR ${amount.toStringAsFixed(0)}'),
                   ],
                 ),
                 const SizedBox(height: 10),

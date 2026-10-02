@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -34,6 +35,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
   bool _locationServiceOff = false;
   bool _locationPermissionDenied = false;
   bool _locationPermissionDeniedForever = false;
+  LatLng? _myCurrentLocation;
 
   @override
   void initState() {
@@ -107,6 +109,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
       final first = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
+      _myCurrentLocation = LatLng(first.latitude, first.longitude);
+      if (mounted) setState(() {});
       await repo.updateCustomerLocation(
         bookingId: widget.bookingId,
         customerId: customerId,
@@ -121,6 +125,11 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
             ),
           ).listen((position) async {
             try {
+              _myCurrentLocation = LatLng(
+                position.latitude,
+                position.longitude,
+              );
+              if (mounted) setState(() {});
               await repo.updateCustomerLocation(
                 bookingId: widget.bookingId,
                 customerId: customerId,
@@ -190,9 +199,9 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to cancel booking: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: AppText('Failed to cancel booking: $e')),
+        );
       }
     }
   }
@@ -203,13 +212,13 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
     final booking = ref.watch(bookingDetailsProvider(widget.bookingId));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Booking Status')),
+      appBar: AppBar(title: const AppText('Booking Status')),
       body: booking.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('$error')),
+        error: (error, _) => Center(child: AppText('$error')),
         data: (data) {
           if (data == null) {
-            return const Center(child: Text('Booking not found'));
+            return const Center(child: AppText('Booking not found'));
           }
 
           final mechanic = data['mechanic'];
@@ -240,7 +249,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
 
               ScaffoldMessenger.of(currentContext).showSnackBar(
                 const SnackBar(
-                  content: Text('Booking was cancelled. Returning to home.'),
+                  content: AppText('Booking was cancelled. Returning to home.'),
                   backgroundColor: Colors.red,
                   duration: Duration(seconds: 4),
                 ),
@@ -283,6 +292,12 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
                   child: LiveGoogleMap(
                     customerLocation: customerLocation,
                     mechanicLocation: mechanicLocation,
+                    currentLocation: _myCurrentLocation,
+                    locationServiceEnabled: !_locationServiceOff,
+                    locationPermissionDenied:
+                        _locationPermissionDenied ||
+                        _locationPermissionDeniedForever,
+                    onEnableLocation: _openLocationSettings,
                   ),
                 ),
                 if (_locationServiceOff ||
@@ -296,7 +311,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
                           const Icon(Icons.location_off_outlined),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
+                            child: AppText(
                               _locationPermissionDeniedForever
                                   ? 'Location permission is permanently denied. Enable it in app settings.'
                                   : _locationPermissionDenied
@@ -307,7 +322,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
                           ),
                           TextButton(
                             onPressed: _openLocationSettings,
-                            child: Text(
+                            child: AppText(
                               _locationPermissionDeniedForever
                                   ? 'Settings'
                                   : 'Turn On',
@@ -321,20 +336,20 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
                   child: Row(
                     children: [
                       CircleAvatar(
-                        child: Text(initials.isEmpty ? 'M' : initials),
+                        child: AppText(initials.isEmpty ? 'M' : initials),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            AppText(
                               name,
                               style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            Text(
+                            AppText(
                               '$service · $status',
                               style: TextStyle(
                                 fontSize: 10,
@@ -342,7 +357,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
                               ),
                             ),
                             if (address.isNotEmpty)
-                              Text(
+                              AppText(
                                 address,
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
@@ -390,7 +405,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen>
                                   color: Colors.redAccent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
-                                child: Text(
+                                child: AppText(
                                   '$unreadChat',
                                   style: const TextStyle(
                                     color: Colors.white,

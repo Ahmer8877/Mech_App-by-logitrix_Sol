@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/models/service_model.dart';
 import '../../cores/providers/booking_draft_provider.dart';
@@ -78,10 +79,10 @@ class SelectServiceScreen extends ConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Text('Failed to load services.'),
+                      const AppText('Failed to load services.'),
                       TextButton(
                         onPressed: () => ref.invalidate(servicesProvider),
-                        child: const Text('Retry'),
+                        child: const AppText('Retry'),
                       ),
                     ],
                   ),
@@ -98,7 +99,7 @@ class SelectServiceScreen extends ConsumerWidget {
 
                   if (services.isEmpty) {
                     return const Center(
-                      child: Text('No active services available.'),
+                      child: AppText('No active services available.'),
                     );
                   }
                   final effectiveId =
@@ -157,14 +158,14 @@ class SelectServiceScreen extends ConsumerWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
+                                    AppText(
                                       service.title,
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
-                                    Text(
+                                    AppText(
                                       service.description,
                                       style: TextStyle(
                                         fontSize: 10,
@@ -174,7 +175,7 @@ class SelectServiceScreen extends ConsumerWidget {
                                   ],
                                 ),
                               ),
-                              Text(
+                              AppText(
                                 'PKR ${service.basePrice.toStringAsFixed(0)}',
                                 style: TextStyle(
                                   fontSize: 9.5,

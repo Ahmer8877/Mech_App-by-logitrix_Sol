@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/config/supabase_config.dart';
 import '../../cores/providers/auth_provider.dart';
@@ -43,29 +44,11 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
         'comment': comment.text.trim(),
       }, onConflict: 'booking_id,customer_id');
 
-      // 2. Calculate dynamic average rating and update mechanic's profile in Supabase
-      final reviewsResponse = await supabase
-          .from('reviews')
-          .select('rating')
-          .eq('mechanic_id', mid);
+      // The database trigger recalculates the mechanic's rating from the
+      // reviews table. Do not update the protected profiles.rating field
+      // from the client. This keeps one authoritative source of truth.
 
-      if (reviewsResponse.isNotEmpty) {
-        final totalReviews = reviewsResponse.length;
-        final sumRating = reviewsResponse.fold<double>(
-          0.0,
-          (sum, item) => sum + ((item['rating'] as num?)?.toDouble() ?? 5.0),
-        );
-        final avgRating = double.parse(
-          (sumRating / totalReviews).toStringAsFixed(1),
-        );
-
-        await supabase
-            .from('profiles')
-            .update({'rating': avgRating, 'total_jobs': totalReviews})
-            .eq('id', mid);
-      }
-
-      // 3. Mark booking as COMPLETED and PAID
+      // 2. Mark booking as COMPLETED and PAID
       await ref.read(bookingRepositoryProvider).complete(widget.bookingId);
 
       ref.invalidate(bookingsProvider);
@@ -81,9 +64,9 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to submit review: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: AppText('Failed to submit review: $e')),
+        );
       }
     } finally {
       if (mounted) setState(() => saving = false);
@@ -94,15 +77,15 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
   Widget build(BuildContext context) {
     final b = ref.watch(bookingDetailsProvider(widget.bookingId));
     return Scaffold(
-      appBar: AppBar(title: const Text('Rate Your Experience')),
+      appBar: AppBar(title: const AppText('Rate Your Experience')),
       body: b.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => (Center(child: Text('$e'))),
+        error: (e, _) => (Center(child: AppText('$e'))),
         data: (x) => Padding(
           padding: const EdgeInsets.all(18),
           child: Column(
             children: [
-              Text(
+              AppText(
                 (x?['mechanic'] as Map?)?['full_name']?.toString() ??
                     'Mechanic',
                 style: const TextStyle(

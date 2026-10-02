@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/step_progress.dart';
@@ -10,16 +11,16 @@ class HelpSupportScreen extends StatelessWidget {
 
   static const _faqs = [
     (
-      'Booking cancel kaise karein?',
-      'Tracking screen par jayein aur "Cancel" button tap karein. Cancellation charges lagu ho sakte hain agar mechanic already raste mein ho.',
+      'How do I cancel a booking?',
+      'Open the Tracking screen and tap "Cancel". Cancellation charges may apply if the mechanic is already on the way.',
     ),
     (
-      'Payment fail ho jaye to?',
-      'Cash payment hamesha available hai fallback ke tor par. Card/wallet fail ho to app automatically retry option deta hai.',
+      'What happens if the payment fails?',
+      'Cash payment is always available as a fallback. If card or wallet payment fails, the app will provide another attempt.',
     ),
     (
-      'Mechanic verified hai ye kaise pata chale?',
-      'Har mechanic profile par verification badge dikhta hai jab unke documents admin se approve ho chuke hon.',
+      'How can I tell if a mechanic is verified?',
+      'A verification badge appears on a mechanic profile after the administrator approves their documents.',
     ),
   ];
 
@@ -65,7 +66,7 @@ class HelpSupportScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 20),
-          Text(
+          AppText(
             'Frequently Asked Questions',
             style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
           ),
@@ -77,7 +78,7 @@ class HelpSupportScreen extends StatelessWidget {
               ).copyWith(dividerColor: Colors.transparent),
               child: ExpansionTile(
                 tilePadding: EdgeInsets.zero,
-                title: Text(
+                title: AppText(
                   f.$1,
                   style: const TextStyle(
                     fontSize: 12,
@@ -87,7 +88,7 @@ class HelpSupportScreen extends StatelessWidget {
                 childrenPadding: const EdgeInsets.only(bottom: 12),
                 expandedAlignment: Alignment.centerLeft,
                 children: [
-                  Text(
+                  AppText(
                     f.$2,
                     style: TextStyle(
                       fontSize: 11,
@@ -111,7 +112,7 @@ class HelpSupportScreen extends StatelessWidget {
                 Icon(Icons.mail_outline, size: 16, color: scheme.primary),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: Text(
+                  child: AppText(
                     'support@mechx.com',
                     style: TextStyle(fontSize: 11.5, color: c.textSecondary),
                   ),
@@ -152,7 +153,7 @@ class _ContactCard extends StatelessWidget {
           children: [
             Icon(icon, size: 20, color: scheme.primary),
             const SizedBox(height: 6),
-            Text(
+            AppText(
               label,
               style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
             ),

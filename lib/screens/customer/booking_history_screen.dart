@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../cores/providers/bookings_provider.dart';
@@ -22,20 +23,20 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text(
+        title: const AppText(
           'Cancel Booking?',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        content: const Text('Are you sure you want to cancel this booking?'),
+        content: const AppText('Are you sure you want to cancel this booking?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('No'),
+            child: const AppText('No'),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Yes, Cancel'),
+            child: const AppText('Yes, Cancel'),
           ),
         ],
       ),
@@ -47,13 +48,13 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
         ref.invalidate(bookingsProvider);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Booking cancelled successfully.')),
+            const SnackBar(content: AppText('Booking cancelled successfully.')),
           );
         }
       } catch (e) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to cancel booking: $e')),
+            SnackBar(content: AppText('Failed to cancel booking: $e')),
           );
         }
       }
@@ -82,10 +83,10 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('Failed to load bookings.'),
+                  const AppText('Failed to load bookings.'),
                   TextButton(
                     onPressed: () => ref.invalidate(bookingsProvider),
-                    child: const Text('Retry'),
+                    child: const AppText('Retry'),
                   ),
                 ],
               ),
@@ -114,7 +115,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                   Expanded(
                     child: list.isEmpty
                         ? Center(
-                            child: Text(
+                            child: AppText(
                               'No bookings found',
                               style: TextStyle(
                                 color: c.textMuted,
@@ -165,27 +166,35 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
+                                              AppText(
                                                 b.service,
                                                 style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                               ),
-                                              Text(
+                                              AppText(
                                                 '${b.mechanic} · ${b.createdAt == null ? 'Recent' : DateFormat('dd MMM yyyy').format(b.createdAt!.toLocal())}',
                                                 style: TextStyle(
                                                   fontSize: 10,
                                                   color: c.textMuted,
                                                 ),
                                               ),
+                                              if (b.mechanic != 'Not assigned')
+                                                AppText(
+                                                  '⭐ ${b.mechanicRating.toStringAsFixed(1)}',
+                                                  style: TextStyle(
+                                                    fontSize: 10,
+                                                    color: c.textMuted,
+                                                  ),
+                                                ),
                                             ],
                                           ),
                                           Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.end,
                                             children: [
-                                              Text(
+                                              AppText(
                                                 'PKR ${b.price.toStringAsFixed(0)}',
                                                 style: const TextStyle(
                                                   fontSize: 11.5,
@@ -214,7 +223,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                                                   borderRadius:
                                                       BorderRadius.circular(6),
                                                 ),
-                                                child: Text(
+                                                child: AppText(
                                                   b.status == 'cancelled'
                                                       ? 'Cancelled'
                                                       : (isFinished
@@ -257,7 +266,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                                                   size: 13,
                                                   color: scheme.primary,
                                                 ),
-                                                label: Text(
+                                                label: AppText(
                                                   'Map',
                                                   style: TextStyle(
                                                     fontSize: 11,
@@ -291,7 +300,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                                                 Icons.payment,
                                                 size: 13,
                                               ),
-                                              label: const Text(
+                                              label: const AppText(
                                                 'Pay',
                                                 style: TextStyle(fontSize: 11),
                                               ),
@@ -315,7 +324,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                                                 size: 13,
                                                 color: c.danger,
                                               ),
-                                              label: Text(
+                                              label: AppText(
                                                 'Cancel',
                                                 style: TextStyle(
                                                   fontSize: 11,
@@ -372,7 +381,7 @@ class _Chip extends StatelessWidget {
           color: selected ? scheme.primary : c.surface2,
           borderRadius: BorderRadius.circular(999),
         ),
-        child: Text(
+        child: AppText(
           label,
           style: TextStyle(
             fontSize: 11,
