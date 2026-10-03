@@ -9,6 +9,7 @@ class ChatScreen extends ConsumerStatefulWidget {
   final String bookingId;
   final String otherUserId;
   final String otherName;
+  final bool readOnly;
 
   const ChatScreen({
     super.key,
@@ -16,6 +17,7 @@ class ChatScreen extends ConsumerStatefulWidget {
     this.otherUserId = '',
     String? otherName,
     String? mechanicName,
+    this.readOnly = false,
   }) : otherName = otherName ?? mechanicName ?? 'Chat';
 
   @override
@@ -174,35 +176,36 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               },
             ),
           ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      decoration: const InputDecoration(
-                        hintText: 'Type a message...',
+          if (!widget.readOnly)
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: const InputDecoration(
+                          hintText: 'Type a message...',
+                        ),
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _sending ? null : _send(),
                       ),
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sending ? null : _send(),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: _sending ? null : _send,
-                    icon: _sending
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.send),
-                  ),
-                ],
+                    IconButton(
+                      onPressed: _sending ? null : _send,
+                      icon: _sending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

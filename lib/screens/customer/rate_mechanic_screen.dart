@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/config/supabase_config.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/bookings_provider.dart';
+import '../../cores/providers/customer_rating_provider.dart';
+import '../../cores/providers/mechanic_rating_provider.dart';
 import '../../cores/providers/mechanic_stats_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_buttons.dart';
@@ -44,16 +46,15 @@ class _RateMechanicScreenState extends ConsumerState<RateMechanicScreen> {
         'comment': comment.text.trim(),
       }, onConflict: 'booking_id,customer_id');
 
-      // The database trigger recalculates the mechanic's rating from the
-      // reviews table. Do not update the protected profiles.rating field
-      // from the client. This keeps one authoritative source of truth.
-
       // 2. Mark booking as COMPLETED and PAID
       await ref.read(bookingRepositoryProvider).complete(widget.bookingId);
 
+      // Invalidate all related providers so UI updates instantly
       ref.invalidate(bookingsProvider);
       ref.invalidate(bookingDetailsProvider(widget.bookingId));
       ref.invalidate(mechanicStatsProvider);
+      ref.invalidate(mechanicRatingProvider(mid));
+      ref.invalidate(customerRatingProvider);
 
       if (mounted) {
         Navigator.pushAndRemoveUntil(

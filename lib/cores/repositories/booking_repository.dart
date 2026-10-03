@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/booking_model.dart';
@@ -14,9 +15,37 @@ class BookingRepository {
         )
         .eq('customer_id', userId)
         .order('created_at', ascending: false);
-    return (rows as List)
-        .map((e) => Booking.fromMap(Map<String, dynamic>.from(e)))
+
+    final bookingList = (rows as List)
+        .map((e) => Map<String, dynamic>.from(e))
         .toList();
+
+    Map<String, double> reviewMap = {};
+    try {
+      final reviews = await client
+          .from('reviews')
+          .select('booking_id, rating')
+          .eq('customer_id', userId);
+
+      for (final r in (reviews as List)) {
+        final bId = r['booking_id']?.toString();
+        final rat = (r['rating'] as num?)?.toDouble();
+        if (bId != null && rat != null) {
+          reviewMap[bId] = rat;
+        }
+      }
+    } catch (e) {
+      debugPrint('getCustomerBookings reviews fetch error: $e');
+    }
+
+    for (final b in bookingList) {
+      final bId = b['id']?.toString();
+      if (bId != null && reviewMap.containsKey(bId)) {
+        b['user_rating'] = reviewMap[bId];
+      }
+    }
+
+    return bookingList.map((e) => Booking.fromMap(e)).toList();
   }
 
   Future<List<Booking>> getMechanicBookings(String userId) async {
@@ -27,9 +56,37 @@ class BookingRepository {
         )
         .eq('mechanic_id', userId)
         .order('created_at', ascending: false);
-    return (rows as List)
-        .map((e) => Booking.fromMap(Map<String, dynamic>.from(e)))
+
+    final bookingList = (rows as List)
+        .map((e) => Map<String, dynamic>.from(e))
         .toList();
+
+    Map<String, double> reviewMap = {};
+    try {
+      final reviews = await client
+          .from('reviews')
+          .select('booking_id, rating')
+          .eq('mechanic_id', userId);
+
+      for (final r in (reviews as List)) {
+        final bId = r['booking_id']?.toString();
+        final rat = (r['rating'] as num?)?.toDouble();
+        if (bId != null && rat != null) {
+          reviewMap[bId] = rat;
+        }
+      }
+    } catch (e) {
+      debugPrint('getMechanicBookings reviews fetch error: $e');
+    }
+
+    for (final b in bookingList) {
+      final bId = b['id']?.toString();
+      if (bId != null && reviewMap.containsKey(bId)) {
+        b['user_rating'] = reviewMap[bId];
+      }
+    }
+
+    return bookingList.map((e) => Booking.fromMap(e)).toList();
   }
 
   Future<List<Map<String, dynamic>>> getOpenRequests({

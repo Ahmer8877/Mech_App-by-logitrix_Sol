@@ -1,8 +1,10 @@
 class Booking {
   final String id;
+  final String mechanicId;
   final String service;
   final String mechanic;
   final double mechanicRating;
+  final double? userRating;
   final String customer;
   final String address;
   final DateTime? createdAt;
@@ -12,9 +14,11 @@ class Booking {
 
   const Booking({
     required this.id,
+    this.mechanicId = '',
     required this.service,
     required this.mechanic,
     this.mechanicRating = 0.0,
+    this.userRating,
     this.customer = 'Customer',
     this.address = '',
     this.createdAt,
@@ -37,8 +41,36 @@ class Booking {
     final mechanicData = map['mechanic'];
     final customerData = map['customer'];
     final serviceData = map['service'];
+    final reviewsData = map['reviews'];
+
+    final mId = (mechanicData is Map ? mechanicData['id']?.toString() : null) ??
+        map['mechanic_id']?.toString() ??
+        '';
+
+    double? parsedUserRating;
+    if (map['user_rating'] != null) {
+      parsedUserRating = _parseRating(map['user_rating']);
+    } else if (reviewsData is List && reviewsData.isNotEmpty) {
+      final firstRev = reviewsData.first;
+      if (firstRev is Map) {
+        parsedUserRating = _parseRating(firstRev['rating']);
+      }
+    } else if (reviewsData is Map) {
+      parsedUserRating = _parseRating(reviewsData['rating']);
+    }
+
+    double parsedMechanicRating = mechanicData is Map
+        ? _parseRating(mechanicData['rating'])
+        : 0.0;
+    if (parsedMechanicRating == 0.0 &&
+        parsedUserRating != null &&
+        parsedUserRating > 0) {
+      parsedMechanicRating = parsedUserRating;
+    }
+
     return Booking(
       id: map['id']?.toString() ?? '',
+      mechanicId: mId,
       service:
           map['service_title']?.toString() ??
           (serviceData is Map
@@ -47,9 +79,8 @@ class Booking {
       mechanic: mechanicData is Map
           ? mechanicData['full_name']?.toString() ?? 'Not assigned'
           : 'Not assigned',
-      mechanicRating: mechanicData is Map
-          ? _parseRating(mechanicData['rating'])
-          : 0.0,
+      mechanicRating: parsedMechanicRating,
+      userRating: parsedUserRating,
       customer: customerData is Map
           ? customerData['full_name']?.toString() ?? 'Customer'
           : 'Customer',

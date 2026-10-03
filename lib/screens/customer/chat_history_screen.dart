@@ -67,6 +67,7 @@ class ChatHistoryScreen extends ConsumerWidget {
                           bookingId: item['booking_id'].toString(),
                           otherUserId: item['other_user_id'].toString(),
                           otherName: otherName,
+                          readOnly: true,
                         ),
                       ),
                     ),

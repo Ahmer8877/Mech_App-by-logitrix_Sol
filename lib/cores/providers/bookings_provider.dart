@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -18,10 +19,38 @@ final ignoredRequestsProvider = StateProvider<Set<String>>((ref) => {});
 /// Tracks whether the active mechanic is online and accepting requests.
 final mechanicOnlineStatusProvider = StateProvider<bool>((ref) => true);
 
-final bookingsProvider = FutureProvider<List<Booking>>((ref) async {
+final bookingsProvider = StreamProvider<List<Booking>>((ref) async* {
   final id = ref.watch(authProvider.select((s) => s.user?.id));
-  if (id == null) return const [];
-  return ref.read(bookingRepositoryProvider).getCustomerBookings(id);
+  if (id == null) {
+    yield const [];
+    return;
+  }
+
+  final repo = ref.read(bookingRepositoryProvider);
+  yield await repo.getCustomerBookings(id);
+
+  try {
+    final bookingsStream = supabase
+        .from('bookings')
+        .stream(primaryKey: ['id'])
+        .eq('customer_id', id)
+        .map<void>((_) {});
+
+    final reviewsStream = supabase
+        .from('reviews')
+        .stream(primaryKey: ['id'])
+        .eq('customer_id', id)
+        .map<void>((_) {});
+
+    final polling = Stream<void>.periodic(const Duration(seconds: 5));
+
+    await for (final _
+        in bookingsStream.mergeWith(reviewsStream).mergeWith(polling)) {
+      yield await repo.getCustomerBookings(id);
+    }
+  } catch (e) {
+    debugPrint('Customer bookings stream catch: $e');
+  }
 });
 
 final mechanicBookingsProvider = StreamProvider<List<Booking>>((ref) async* {
@@ -35,11 +64,24 @@ final mechanicBookingsProvider = StreamProvider<List<Booking>>((ref) async* {
   yield await repo.getMechanicBookings(id);
 
   try {
-    yield* supabase
+    final bookingsStream = supabase
         .from('bookings')
         .stream(primaryKey: ['id'])
-        .handleError((e) => debugPrint('Mechanic bookings stream error: $e'))
-        .asyncMap((_) => repo.getMechanicBookings(id));
+        .eq('mechanic_id', id)
+        .map<void>((_) {});
+
+    final reviewsStream = supabase
+        .from('reviews')
+        .stream(primaryKey: ['id'])
+        .eq('mechanic_id', id)
+        .map<void>((_) {});
+
+    final polling = Stream<void>.periodic(const Duration(seconds: 5));
+
+    await for (final _
+        in bookingsStream.mergeWith(reviewsStream).mergeWith(polling)) {
+      yield await repo.getMechanicBookings(id);
+    }
   } catch (e) {
     debugPrint('Mechanic bookings catch: $e');
   }
@@ -102,13 +144,52 @@ final bookingDetailsProvider =
       yield await repo.getRawBooking(id);
 
       try {
-        yield* supabase
+        final bookingStream = supabase
             .from('bookings')
             .stream(primaryKey: ['id'])
             .eq('id', id)
-            .handleError((e) => debugPrint('Booking details stream error: $e'))
-            .asyncMap((_) => repo.getRawBooking(id));
+            .map<void>((_) {});
+
+        final reviewsStream = supabase
+            .from('reviews')
+            .stream(primaryKey: ['id'])
+            .eq('booking_id', id)
+            .map<void>((_) {});
+
+        final polling = Stream<void>.periodic(const Duration(seconds: 4));
+
+        await for (final _
+            in bookingStream.mergeWith(reviewsStream).mergeWith(polling)) {
+          yield await repo.getRawBooking(id);
+        }
       } catch (e) {
         debugPrint('Booking details catch: $e');
       }
     });
+
+extension _BookingsStreamMerge<T> on Stream<T> {
+  Stream<T> mergeWith(Stream<T> other) {
+    final controller = StreamController<T>();
+    late StreamSubscription<T> first;
+    late StreamSubscription<T> second;
+    var closed = false;
+
+    void close() {
+      if (closed) return;
+      closed = true;
+      controller.close();
+    }
+
+    first = listen(controller.add, onError: controller.addError, onDone: close);
+    second = other.listen(
+      controller.add,
+      onError: controller.addError,
+      onDone: close,
+    );
+    controller.onCancel = () async {
+      await first.cancel();
+      await second.cancel();
+    };
+    return controller.stream;
+  }
+}

@@ -1,11 +1,11 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/supabase_config.dart';
 import 'auth_provider.dart';
 
 /// StreamProvider dynamically calculating customer's 'Given Rating' average in real-time.
 /// Listens to real-time changes in Supabase 'reviews' table for the logged-in customer ID.
-/// Updates ProfileScreen immediately when a new review is submitted without needing app restart.
 final customerRatingProvider = StreamProvider.autoDispose<double?>((
   ref,
 ) async* {
@@ -33,30 +33,33 @@ final customerRatingProvider = StreamProvider.autoDispose<double?>((
           .toList();
 
       if (ratings.isEmpty) return null;
-      return ratings.reduce((a, b) => a + b) / ratings.length;
-    } catch (_) {
+      final avg = ratings.reduce((a, b) => a + b) / ratings.length;
+      final parsed = double.parse(avg.toStringAsFixed(1));
+      debugPrint('customerRatingProvider for $userId: avg = $parsed');
+      return parsed;
+    } catch (e) {
+      debugPrint('customerRatingProvider loadAvg error for $userId: $e');
       return null;
     }
   }
 
   yield await loadAvg();
 
-  // Realtime updates the number immediately; polling keeps it fresh when a
-  // browser/device temporarily cannot maintain the Realtime WebSocket.
   final realtime = supabase
       .from('reviews')
       .stream(primaryKey: ['id'])
       .eq('customer_id', userId)
+      .handleError((e) => debugPrint('customerRating realtime error: $e'))
       .map<void>((_) {});
-  final polling = Stream<void>.periodic(const Duration(seconds: 5));
+  final polling = Stream<void>.periodic(const Duration(seconds: 4));
 
-  try {
-    await for (final _ in realtime.mergeWith(polling)) {
+  final safeStream = realtime.mergeWith(polling).handleError((e) => debugPrint('customerRating safeStream error: $e'));
+
+  await for (final _ in safeStream) {
+    try {
       yield await loadAvg();
-    }
-  } catch (_) {
-    await for (final _ in polling) {
-      yield await loadAvg();
+    } catch (e) {
+      debugPrint('customerRatingProvider iteration error: $e');
     }
   }
 });
@@ -74,10 +77,10 @@ extension _CustomerRatingStreamMerge<T> on Stream<T> {
       controller.close();
     }
 
-    first = listen(controller.add, onError: controller.addError, onDone: close);
+    first = listen(controller.add, onError: (e) => debugPrint('customer first stream error: $e'), onDone: close);
     second = other.listen(
       controller.add,
-      onError: controller.addError,
+      onError: (e) => debugPrint('customer second stream error: $e'),
       onDone: close,
     );
     controller.onCancel = () async {

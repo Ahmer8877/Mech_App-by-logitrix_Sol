@@ -3,6 +3,7 @@ import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/auth_provider.dart';
 import '../../cores/providers/bookings_provider.dart';
+import '../../cores/providers/mechanic_rating_provider.dart';
 import '../../cores/providers/offers_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/app_atoms.dart';
@@ -142,12 +143,10 @@ class OffersScreen extends ConsumerWidget {
                           offer.mechanicName,
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        AppText(
-                          '⭐ ${offer.mechanicRating.toStringAsFixed(1)} · ${offer.estimatedTime}',
-                          style: TextStyle(
-                            color: context.colors.textMuted,
-                            fontSize: 11,
-                          ),
+                        _OfferRatingBadge(
+                          mechanicId: offer.mechanicId,
+                          fallbackRating: offer.mechanicRating,
+                          estimatedTime: offer.estimatedTime,
                         ),
                         const SizedBox(height: 6),
                         AppText(
@@ -176,6 +175,48 @@ class OffersScreen extends ConsumerWidget {
           );
         },
       ),
+    );
+  }
+}
+
+class _OfferRatingBadge extends ConsumerWidget {
+  final String mechanicId;
+  final double fallbackRating;
+  final String estimatedTime;
+
+  const _OfferRatingBadge({
+    required this.mechanicId,
+    required this.fallbackRating,
+    required this.estimatedTime,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    final ratingAsync = mechanicId.isNotEmpty
+        ? ref.watch(mechanicRatingProvider(mechanicId))
+        : null;
+
+    final ratingVal = (ratingAsync?.valueOrNull != null && ratingAsync!.valueOrNull! > 0)
+        ? ratingAsync.valueOrNull!
+        : fallbackRating;
+
+    final display = ratingVal > 0 ? ratingVal.toStringAsFixed(1) : '0.0';
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.star, size: 12, color: c.accent),
+        const SizedBox(width: 3),
+        Text(
+          '$display · $estimatedTime',
+          textDirection: TextDirection.ltr,
+          style: TextStyle(
+            color: c.textMuted,
+            fontSize: 11,
+          ),
+        ),
+      ],
     );
   }
 }

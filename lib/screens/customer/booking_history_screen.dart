@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../cores/models/booking_model.dart';
 import '../../cores/providers/bookings_provider.dart';
+import '../../cores/providers/mechanic_rating_provider.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/step_progress.dart';
 import 'payment_method_screen.dart';
 import 'tracking_screen.dart';
+import 'dart:ui' as ui;
 
 class BookingHistoryScreen extends ConsumerStatefulWidget {
   const BookingHistoryScreen({super.key});
@@ -181,13 +184,7 @@ class _BookingHistoryScreenState extends ConsumerState<BookingHistoryScreen> {
                                                 ),
                                               ),
                                               if (b.mechanic != 'Not assigned')
-                                                AppText(
-                                                  '⭐ ${b.mechanicRating.toStringAsFixed(1)}',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    color: c.textMuted,
-                                                  ),
-                                                ),
+                                                _BookingRatingBadge(booking: b),
                                             ],
                                           ),
                                           Column(
@@ -389,6 +386,58 @@ class _Chip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _BookingRatingBadge extends ConsumerWidget {
+  final Booking booking;
+  const _BookingRatingBadge({required this.booking});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.colors;
+    
+    // 1. If this specific booking has a review rating given by customer, show that exact rating
+    double? ratingVal = booking.userRating;
+
+    // 2. Otherwise watch the live average rating of the mechanic (e.g. 4.5)
+    if (ratingVal == null || ratingVal <= 0) {
+      final ratingAsync = booking.mechanicId.isNotEmpty
+          ? ref.watch(mechanicRatingProvider(booking.mechanicId))
+          : null;
+      ratingVal = (ratingAsync?.valueOrNull != null && ratingAsync!.valueOrNull! > 0)
+          ? ratingAsync.valueOrNull!
+          : booking.mechanicRating;
+    }
+
+    if (ratingVal <= 0) {
+      return AppText(
+        'Not rated yet',
+        style: TextStyle(
+          fontSize: 10,
+          color: c.textMuted,
+        ),
+      );
+    }
+
+    final display = ratingVal.toStringAsFixed(1);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(Icons.star, size: 12, color: c.accent),
+        const SizedBox(width: 3),
+        Text(
+          display,
+          textDirection: ui.TextDirection.ltr,
+          style: TextStyle(
+            fontSize: 10.5,
+            color: c.textMuted,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

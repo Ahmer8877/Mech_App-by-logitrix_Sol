@@ -61,6 +61,15 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
     final enteredBudget = double.tryParse(_budgetController.text.trim());
     final budget = enteredBudget ?? service.basePrice;
 
+    if (_currentPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: AppText('Please turn on location and allow GPS before continuing.'),
+        ),
+      );
+      return;
+    }
+
     if (address.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: AppText('Please enter pickup address')),
@@ -210,7 +219,8 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
                     locationServiceEnabled:
                         _locationError != 'GPS is turned off.',
                     locationPermissionDenied: _locationError != null,
-                    onEnableLocation: _openLocationSettings,
+                    // The explicit card below owns the GPS action on this screen.
+                    onEnableLocation: null,
                     customerLocation: _currentPosition == null
                         ? null
                         : LatLng(
@@ -233,7 +243,7 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
                         ),
                       ),
                     ),
-                  if (!_locating && _locationError != null)
+                  if (!_locating && _currentPosition == null)
                     Positioned(
                       left: 12,
                       right: 12,
@@ -241,9 +251,19 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
                       child: Card(
                         child: Padding(
                           padding: const EdgeInsets.all(10),
-                          child: AppText(
-                            _locationError!,
-                            textAlign: TextAlign.center,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              AppText(
+                                _locationError ?? 'Location is required to continue.',
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 8),
+                              AccentButton(
+                                label: 'Turn on location',
+                                onPressed: _openLocationSettings,
+                              ),
+                            ],
                           ),
                         ),
                       ),

@@ -27,6 +27,7 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
   int _navIndex = 0;
   late DateTime _currentTime;
   Timer? _greetingTimer;
+  bool _profileDialogShown = false;
 
   @override
   void initState() {
@@ -36,19 +37,20 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
       if (mounted) setState(() => _currentTime = DateTime.now());
     });
 
-    // New customer accounts get a gentle profile-completion reminder once.
-    // Email is already supplied by Auth, so name/phone are the useful fields.
-    Future.delayed(const Duration(seconds: 5), _showProfileCompletionDialog);
+    // The dialog is triggered from the first build once the profile is available.
+    // No artificial delay is used.
+
   }
 
   void _showProfileCompletionDialog() {
-    if (!mounted) return;
+    if (!mounted || _profileDialogShown) return;
     final profile = ref.read(currentUserProfileProvider);
     final isIncomplete =
         profile.fullName.trim().isEmpty ||
         profile.fullName.trim().toLowerCase() == 'user' ||
         profile.phone.trim().isEmpty;
     if (!isIncomplete) return;
+    _profileDialogShown = true;
 
     showDialog<void>(
       context: context,
@@ -98,6 +100,11 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
     final scheme = Theme.of(context).colorScheme;
     final c = context.colors;
     final userProfile = ref.watch(currentUserProfileProvider);
+    if (!_profileDialogShown) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showProfileCompletionDialog();
+      });
+    }
     final servicesAsync = ref.watch(servicesProvider);
     final popularServices =
         servicesAsync.valueOrNull?.take(6).toList() ?? const [];

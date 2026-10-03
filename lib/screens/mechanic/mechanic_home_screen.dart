@@ -29,49 +29,60 @@ class MechanicHomeScreen extends ConsumerStatefulWidget {
 class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
   int _navIndex = 0;
   bool _hasContinuedToDashboard = false;
+  bool _profileDialogShown = false;
 
   @override
   void initState() {
     super.initState();
     final profile = ref.read(currentUserProfileProvider);
-    if (profile.isVerified || profile.verificationStatus == 'approved') {
-      _hasContinuedToDashboard = true;
-      if ((profile.specialization?.trim().isEmpty ?? true) ||
-          profile.experienceYears == null) {
-        Future.delayed(const Duration(seconds: 5), () {
-          if (!mounted) return;
-          showDialog<void>(
-            context: context,
-            barrierDismissible: true,
-            builder: (dialogContext) => AlertDialog(
-              title: const AppText('Complete Your Profile'),
-              content: const AppText(
-                'Add your specialization and years of experience to help customers choose the right mechanic for their vehicle.',
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(dialogContext),
-                  child: const AppText('Later'),
-                ),
-                FilledButton(
-                  onPressed: () {
-                    Navigator.pop(dialogContext);
-                    setState(() => _navIndex = 3);
-                  },
-                  child: const AppText('Complete Profile'),
-                ),
-              ],
-            ),
-          );
-        });
-      }
-    }
+    _hasContinuedToDashboard =
+        profile.isVerified || profile.verificationStatus == 'approved';
+  }
+
+  void _showProfileCompletionDialog() {
+    if (!mounted || _profileDialogShown) return;
+    final profile = ref.read(currentUserProfileProvider);
+    if (!profile.isVerified && profile.verificationStatus != 'approved') return;
+    final incomplete =
+        (profile.specialization?.trim().isEmpty ?? true) ||
+        profile.experienceYears == null;
+    if (!incomplete) return;
+    _profileDialogShown = true;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const AppText('Complete Your Profile'),
+        content: const AppText(
+          'Add your specialization and years of experience to help customers choose the right mechanic for their vehicle.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const AppText('Later'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              setState(() => _navIndex = 3);
+            },
+            child: const AppText('Complete Profile'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildHomeContent(BuildContext context, WidgetRef ref) {
     final scheme = Theme.of(context).colorScheme;
     final c = context.colors;
     final userProfile = ref.watch(currentUserProfileProvider);
+    if (!_profileDialogShown) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showProfileCompletionDialog();
+      });
+    }
 
     final isOnline = ref.watch(mechanicOnlineStatusProvider);
     final statsAsync = ref.watch(mechanicStatsProvider);
@@ -232,10 +243,8 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: StatMini(
-                    value:
-                        ratingAsync.valueOrNull?.toStringAsFixed(1) ??
-                        userProfile.rating.toStringAsFixed(1),
+                  child: _RatingStat(
+                    value: ratingAsync.valueOrNull ?? userProfile.rating,
                     label: 'Rating',
                   ),
                 ),
@@ -489,6 +498,36 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
             icon: Icon(Icons.person_outline),
             label: 'Profile',
           ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _RatingStat extends StatelessWidget {
+  final double value;
+  final String label;
+
+  const _RatingStat({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final c = context.colors;
+    final display = value > 0 ? value.toStringAsFixed(1) : '0.0';
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: c.borderStrong.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          Text(display, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 8, color: c.textMuted)),
         ],
       ),
     );
