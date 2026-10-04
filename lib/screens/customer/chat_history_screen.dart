@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../widgets/app_text.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../cores/providers/auth_provider.dart';
@@ -53,6 +54,12 @@ class ChatHistoryScreen extends ConsumerWidget {
               itemBuilder: (context, index) {
                 final item = history[index];
                 final otherName = item['other_name']?.toString() ?? 'User';
+                final lastMessageAt = DateTime.tryParse(
+                  item['last_message_at']?.toString() ?? '',
+                )?.toLocal();
+                final chatDateTime = lastMessageAt == null
+                    ? null
+                    : DateFormat('dd MMM yyyy · hh:mm a').format(lastMessageAt);
                 final initial = otherName.trim().isEmpty
                     ? 'U'
                     : otherName.trim()[0].toUpperCase();
@@ -117,6 +124,18 @@ class ChatHistoryScreen extends ConsumerWidget {
                                     color: context.colors.textMuted,
                                   ),
                                 ),
+                                if (chatDateTime != null) ...[
+                                  const SizedBox(height: 3),
+                                  AppText(
+                                    chatDateTime,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 9.5,
+                                      color: context.colors.textMuted,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),

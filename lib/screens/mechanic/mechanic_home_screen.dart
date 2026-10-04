@@ -504,7 +504,6 @@ class _MechanicHomeScreenState extends ConsumerState<MechanicHomeScreen> {
   }
 }
 
-
 class _RatingStat extends StatelessWidget {
   final double value;
   final String label;
@@ -525,7 +524,13 @@ class _RatingStat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(display, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15, fontWeight: FontWeight.w700)),
+          Text(
+            display,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 2),
           Text(label, style: TextStyle(fontSize: 8, color: c.textMuted)),
         ],

@@ -64,7 +64,9 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
     if (_currentPosition == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: AppText('Please turn on location and allow GPS before continuing.'),
+          content: AppText(
+            'Please turn on location and allow GPS before continuing.',
+          ),
         ),
       );
       return;
@@ -255,7 +257,8 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               AppText(
-                                _locationError ?? 'Location is required to continue.',
+                                _locationError ??
+                                    'Location is required to continue.',
                                 textAlign: TextAlign.center,
                               ),
                               const SizedBox(height: 8),

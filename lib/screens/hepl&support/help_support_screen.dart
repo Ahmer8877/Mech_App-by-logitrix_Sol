@@ -4,7 +4,7 @@ import '../../widgets/app_text.dart';
 import '../../cores/theme/app_theme.dart';
 import '../../widgets/step_progress.dart';
 import '../call/call_screen.dart';
-import '../customer/chat_screen.dart';
+import 'support_chat_screen.dart';
 
 class HelpSupportScreen extends StatelessWidget {
   const HelpSupportScreen({super.key});
@@ -15,8 +15,8 @@ class HelpSupportScreen extends StatelessWidget {
       'Open the Tracking screen and tap "Cancel". Cancellation charges may apply if the mechanic is already on the way.',
     ),
     (
-      'What happens if the payment fails?',
-      'Cash payment is always available as a fallback. If card or wallet payment fails, the app will provide another attempt.',
+      'What payment method is available?',
+      'Cash payment is currently the only supported payment method in MechX.',
     ),
     (
       'How can I tell if a mechanic is verified?',
@@ -41,8 +41,7 @@ class HelpSupportScreen extends StatelessWidget {
                   label: 'Live Chat',
                   onTap: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) =>
-                          const ChatScreen(mechanicName: 'MechX Support'),
+                      builder: (_) => const SupportChatScreen(),
                     ),
                   ),
                 ),
@@ -112,9 +111,13 @@ class HelpSupportScreen extends StatelessWidget {
                 Icon(Icons.mail_outline, size: 16, color: scheme.primary),
                 const SizedBox(width: 10),
                 Expanded(
-                  child: AppText(
-                    'support@mechx.com',
-                    style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                  child: Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: SelectableText(
+                      'support@mechx.com',
+                      maxLines: 2,
+                      style: TextStyle(fontSize: 11.5, color: c.textSecondary),
+                    ),
                   ),
                 ),
               ],

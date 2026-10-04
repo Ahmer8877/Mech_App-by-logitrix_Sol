@@ -23,9 +23,7 @@ import 'edit_profile_screen.dart';
 
 /// Shared Profile screen — displays dynamic profile image and data from [currentUserProfileProvider].
 String _ratingText(double? liveRating, {double fallback = 0.0}) {
-  final value = (liveRating != null && liveRating > 0)
-      ? liveRating
-      : fallback;
+  final value = (liveRating != null && liveRating > 0) ? liveRating : fallback;
   return value > 0 ? value.toStringAsFixed(1) : '0.0';
 }
 
@@ -68,22 +66,22 @@ class ProfileScreen extends ConsumerWidget {
                 radius: 30,
                 backgroundColor: c.surface2,
                 backgroundImage:
-                userProfile.avatarUrl != null &&
-                    userProfile.avatarUrl!.isNotEmpty
+                    userProfile.avatarUrl != null &&
+                        userProfile.avatarUrl!.isNotEmpty
                     ? CachedNetworkImageProvider(userProfile.avatarUrl!)
-                as ImageProvider
+                          as ImageProvider
                     : null,
                 child:
-                (userProfile.avatarUrl == null ||
-                    userProfile.avatarUrl!.isEmpty)
+                    (userProfile.avatarUrl == null ||
+                        userProfile.avatarUrl!.isEmpty)
                     ? AppText(
-                  userProfile.initials,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.primary,
-                  ),
-                )
+                        userProfile.initials,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.primary,
+                        ),
+                      )
                     : null,
               ),
               const SizedBox(width: 14),
@@ -113,17 +111,7 @@ class ProfileScreen extends ConsumerWidget {
                           Icon(Icons.star, size: 12, color: c.accent),
                           const SizedBox(width: 3),
                           AppText(
-                            '${mechanicRatingAsync?.when(
-                              data: (val) => val.toStringAsFixed(1),
-                              loading: () =>
-                              mechanicRatingAsync.valueOrNull
-                                  ?.toStringAsFixed(1) ??
-                                  userProfile.rating.toStringAsFixed(1),
-                              error: (_, _) =>
-                              mechanicRatingAsync.valueOrNull
-                                  ?.toStringAsFixed(1) ??
-                                  userProfile.rating.toStringAsFixed(1),
-                            ) ?? userProfile.rating.toStringAsFixed(1)} · ${userProfile.totalJobs} jobs',
+                            '${mechanicRatingAsync?.when(data: (val) => val.toStringAsFixed(1), loading: () => mechanicRatingAsync.valueOrNull?.toStringAsFixed(1) ?? userProfile.rating.toStringAsFixed(1), error: (_, _) => mechanicRatingAsync.valueOrNull?.toStringAsFixed(1) ?? userProfile.rating.toStringAsFixed(1)) ?? userProfile.rating.toStringAsFixed(1)} · ${userProfile.totalJobs} jobs',
                             style: TextStyle(
                               fontSize: 10.5,
                               color: c.textSecondary,
@@ -144,7 +132,7 @@ class ProfileScreen extends ConsumerWidget {
                 Expanded(
                   child: StatMini(
                     value:
-                    'PKR ${mechanicStats.todayEarnings.toStringAsFixed(0)}',
+                        'PKR ${mechanicStats.todayEarnings.toStringAsFixed(0)}',
                     label: 'Today',
                   ),
                 ),
@@ -157,24 +145,18 @@ class ProfileScreen extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: StatMini(
-                    value: isMechanic
-                        ? (mechanicRatingAsync?.maybeWhen(
-                      data: (value) => value > 0
-                          ? value.toStringAsFixed(1)
-                          : _ratingText(null, fallback: userProfile.rating),
-                      orElse: () => _ratingText(
-                        mechanicRatingAsync.valueOrNull,
-                        fallback: userProfile.rating,
-                      ),
-                    ) ??
-                        _ratingText(null, fallback: userProfile.rating))
-                        : _ratingText(
-                      customerRatingAsync?.valueOrNull,
-                      fallback: userProfile.rating,
-                    ),
-                    label: 'Rating',
-                  ),
+                  child: isMechanic
+                      ? _MechanicRatingStat(
+                          value: userProfile.rating,
+                          label: 'Rating',
+                        )
+                      : StatMini(
+                          value: _ratingText(
+                            customerRatingAsync?.valueOrNull,
+                            fallback: userProfile.rating,
+                          ),
+                          label: 'Rating',
+                        ),
                 ),
               ],
             )
@@ -201,7 +183,8 @@ class ProfileScreen extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _RatingStat(
-                    value: customerRatingAsync?.valueOrNull ?? userProfile.rating,
+                    value:
+                        customerRatingAsync?.valueOrNull ?? userProfile.rating,
                     label: 'Given Rating',
                   ),
                 ),
@@ -317,7 +300,7 @@ class ProfileScreen extends ConsumerWidget {
               ref.read(authProvider.notifier).logout();
               Navigator.of(context).pushAndRemoveUntil(
                 MaterialPageRoute(builder: (_) => const RoleSelectScreen()),
-                    (route) => false,
+                (route) => false,
               );
             },
             icon: Icon(Icons.logout, size: 16, color: c.danger),
@@ -367,6 +350,43 @@ class _MenuTile extends StatelessWidget {
   }
 }
 
+class _MechanicRatingStat extends StatelessWidget {
+  final double value;
+  final String label;
+  const _MechanicRatingStat({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final c = context.colors;
+    final display = value > 0 ? value.toStringAsFixed(1) : '0.0';
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: BoxDecoration(
+        color: scheme.surface,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: c.borderStrong.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text(
+              display,
+              maxLines: 1,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 8, color: c.textMuted)),
+        ],
+      ),
+    );
+  }
+}
 
 class _RatingStat extends StatelessWidget {
   final double value;
@@ -388,7 +408,13 @@ class _RatingStat extends StatelessWidget {
       ),
       child: Column(
         children: [
-          Text(display, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 15, fontWeight: FontWeight.w700)),
+          Text(
+            display,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           const SizedBox(height: 2),
           Text(label, style: TextStyle(fontSize: 8, color: c.textMuted)),
         ],

@@ -197,7 +197,8 @@ class _OfferRatingBadge extends ConsumerWidget {
         ? ref.watch(mechanicRatingProvider(mechanicId))
         : null;
 
-    final ratingVal = (ratingAsync?.valueOrNull != null && ratingAsync!.valueOrNull! > 0)
+    final ratingVal =
+        (ratingAsync?.valueOrNull != null && ratingAsync!.valueOrNull! > 0)
         ? ratingAsync.valueOrNull!
         : fallbackRating;
 
@@ -211,10 +212,7 @@ class _OfferRatingBadge extends ConsumerWidget {
         Text(
           '$display · $estimatedTime',
           textDirection: TextDirection.ltr,
-          style: TextStyle(
-            color: c.textMuted,
-            fontSize: 11,
-          ),
+          style: TextStyle(color: c.textMuted, fontSize: 11),
         ),
       ],
     );

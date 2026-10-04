@@ -39,7 +39,6 @@ class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
 
     // The dialog is triggered from the first build once the profile is available.
     // No artificial delay is used.
-
   }
 
   void _showProfileCompletionDialog() {

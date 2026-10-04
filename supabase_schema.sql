@@ -849,6 +849,24 @@ CREATE POLICY "Users Insert Mechanic Documents" ON storage.objects
   FOR INSERT WITH CHECK (
     bucket_id = 'mechanic_documents'
     AND auth.uid() IS NOT NULL
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS "Users Update Own Mechanic Documents" ON storage.objects;
+CREATE POLICY "Users Update Own Mechanic Documents" ON storage.objects
+  FOR UPDATE USING (
+    bucket_id = 'mechanic_documents'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  ) WITH CHECK (
+    bucket_id = 'mechanic_documents'
+    AND (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+DROP POLICY IF EXISTS "Users Delete Own Mechanic Documents" ON storage.objects;
+CREATE POLICY "Users Delete Own Mechanic Documents" ON storage.objects
+  FOR DELETE USING (
+    bucket_id = 'mechanic_documents'
+    AND (storage.foldername(name))[1] = auth.uid()::text
   );
 
 -- ---------------------------------------------------------------------
@@ -1085,3 +1103,133 @@ SET rating = COALESCE(
 WHERE p.role = 'mechanic';
 
 UPDATE public.profiles SET rating = 0 WHERE role <> 'mechanic';
+
+-- =====================================================================
+-- SUPPORT CHAT + CASH-ONLY PAYMENT ENFORCEMENT
+-- Safe to run on an existing database.
+-- =====================================================================
+
+-- MechX currently supports CASH only. Normalize existing rows first.
+UPDATE public.bookings
+SET payment_method = 'Cash'
+WHERE payment_method IS DISTINCT FROM 'Cash';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'bookings_payment_method_cash_only'
+      AND conrelid = 'public.bookings'::regclass
+  ) THEN
+    ALTER TABLE public.bookings
+      ADD CONSTRAINT bookings_payment_method_cash_only
+      CHECK (payment_method = 'Cash');
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.support_conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE REFERENCES public.profiles(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open','closed')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_message_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS public.support_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID NOT NULL REFERENCES public.support_conversations(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  sender_role TEXT NOT NULL CHECK (sender_role IN ('user','admin')),
+  message TEXT NOT NULL,
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS support_messages_conversation_created_idx
+  ON public.support_messages(conversation_id, created_at);
+
+CREATE OR REPLACE FUNCTION public.touch_support_conversation()
+RETURNS TRIGGER AS $$
+BEGIN
+  UPDATE public.support_conversations
+  SET updated_at = NOW(), last_message_at = NEW.created_at
+  WHERE id = NEW.conversation_id;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+DROP TRIGGER IF EXISTS support_message_touch_conversation ON public.support_messages;
+CREATE TRIGGER support_message_touch_conversation
+AFTER INSERT ON public.support_messages
+FOR EACH ROW EXECUTE FUNCTION public.touch_support_conversation();
+
+ALTER TABLE public.support_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.support_messages ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users read own support conversation" ON public.support_conversations;
+CREATE POLICY "Users read own support conversation"
+ON public.support_conversations FOR SELECT
+USING (auth.uid() = user_id OR public.is_admin());
+
+DROP POLICY IF EXISTS "Users create own support conversation" ON public.support_conversations;
+CREATE POLICY "Users create own support conversation"
+ON public.support_conversations FOR INSERT
+WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+DROP POLICY IF EXISTS "Users update own support conversation" ON public.support_conversations;
+CREATE POLICY "Users update own support conversation"
+ON public.support_conversations FOR UPDATE
+USING (auth.uid() = user_id OR public.is_admin())
+WITH CHECK (auth.uid() = user_id OR public.is_admin());
+
+DROP POLICY IF EXISTS "Admins read all support messages" ON public.support_messages;
+CREATE POLICY "Admins read all support messages"
+ON public.support_messages FOR SELECT
+USING (
+  public.is_admin()
+  OR EXISTS (
+    SELECT 1 FROM public.support_conversations c
+    WHERE c.id = conversation_id AND c.user_id = auth.uid()
+  )
+);
+
+DROP POLICY IF EXISTS "Users send support messages" ON public.support_messages;
+CREATE POLICY "Users send support messages"
+ON public.support_messages FOR INSERT
+WITH CHECK (
+  sender_id = auth.uid()
+  AND (
+    (sender_role = 'user' AND EXISTS (
+      SELECT 1 FROM public.support_conversations c
+      WHERE c.id = conversation_id AND c.user_id = auth.uid()
+    ))
+    OR
+    (sender_role = 'admin' AND public.is_admin())
+  )
+);
+
+DROP POLICY IF EXISTS "Participants update support messages" ON public.support_messages;
+CREATE POLICY "Participants update support messages"
+ON public.support_messages FOR UPDATE
+USING (public.is_admin() OR sender_id = auth.uid())
+WITH CHECK (public.is_admin() OR sender_id = auth.uid());
+
+ALTER TABLE public.support_conversations REPLICA IDENTITY FULL;
+ALTER TABLE public.support_messages REPLICA IDENTITY FULL;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='support_conversations'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.support_conversations;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='support_messages'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.support_messages;
+  END IF;
+END $$;

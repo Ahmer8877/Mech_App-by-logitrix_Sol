@@ -43,7 +43,8 @@ class Booking {
     final serviceData = map['service'];
     final reviewsData = map['reviews'];
 
-    final mId = (mechanicData is Map ? mechanicData['id']?.toString() : null) ??
+    final mId =
+        (mechanicData is Map ? mechanicData['id']?.toString() : null) ??
         map['mechanic_id']?.toString() ??
         '';
 

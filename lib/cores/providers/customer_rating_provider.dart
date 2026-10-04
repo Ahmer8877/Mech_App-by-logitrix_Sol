@@ -53,7 +53,9 @@ final customerRatingProvider = StreamProvider.autoDispose<double?>((
       .map<void>((_) {});
   final polling = Stream<void>.periodic(const Duration(seconds: 4));
 
-  final safeStream = realtime.mergeWith(polling).handleError((e) => debugPrint('customerRating safeStream error: $e'));
+  final safeStream = realtime
+      .mergeWith(polling)
+      .handleError((e) => debugPrint('customerRating safeStream error: $e'));
 
   await for (final _ in safeStream) {
     try {
@@ -77,7 +79,11 @@ extension _CustomerRatingStreamMerge<T> on Stream<T> {
       controller.close();
     }
 
-    first = listen(controller.add, onError: (e) => debugPrint('customer first stream error: $e'), onDone: close);
+    first = listen(
+      controller.add,
+      onError: (e) => debugPrint('customer first stream error: $e'),
+      onDone: close,
+    );
     second = other.listen(
       controller.add,
       onError: (e) => debugPrint('customer second stream error: $e'),

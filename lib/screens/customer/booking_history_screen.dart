@@ -397,7 +397,7 @@ class _BookingRatingBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.colors;
-    
+
     // 1. If this specific booking has a review rating given by customer, show that exact rating
     double? ratingVal = booking.userRating;
 
@@ -406,7 +406,8 @@ class _BookingRatingBadge extends ConsumerWidget {
       final ratingAsync = booking.mechanicId.isNotEmpty
           ? ref.watch(mechanicRatingProvider(booking.mechanicId))
           : null;
-      ratingVal = (ratingAsync?.valueOrNull != null && ratingAsync!.valueOrNull! > 0)
+      ratingVal =
+          (ratingAsync?.valueOrNull != null && ratingAsync!.valueOrNull! > 0)
           ? ratingAsync.valueOrNull!
           : booking.mechanicRating;
     }
@@ -414,10 +415,7 @@ class _BookingRatingBadge extends ConsumerWidget {
     if (ratingVal <= 0) {
       return AppText(
         'Not rated yet',
-        style: TextStyle(
-          fontSize: 10,
-          color: c.textMuted,
-        ),
+        style: TextStyle(fontSize: 10, color: c.textMuted),
       );
     }
 

@@ -17,7 +17,6 @@ class PaymentMethodScreen extends ConsumerStatefulWidget {
 }
 
 class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
-  String _method = 'Cash';
   bool _saving = false;
 
   Future<void> _pay() async {
@@ -25,7 +24,7 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
     try {
       await ref
           .read(bookingRepositoryProvider)
-          .markPaid(widget.bookingId, _method);
+          .markPaid(widget.bookingId, 'Cash');
       ref.invalidate(bookingsProvider);
       ref.invalidate(bookingDetailsProvider(widget.bookingId));
 
@@ -69,22 +68,22 @@ class _PaymentMethodScreenState extends ConsumerState<PaymentMethodScreen> {
             padding: const EdgeInsets.all(18),
             child: Column(
               children: [
-                DropdownButtonFormField<String>(
-                  initialValue: _method,
-                  items:
-                      const [
-                        'Cash',
-                        'Credit / Debit Card',
-                        'JazzCash / Easypaisa',
-                      ].map((method) {
-                        return DropdownMenuItem(
-                          value: method,
-                          child: AppText(method),
-                        );
-                      }).toList(),
-                  onChanged: (value) {
-                    if (value != null) setState(() => _method = value);
-                  },
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                    ),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.payments_outlined),
+                      SizedBox(width: 10),
+                      AppText('Cash'),
+                    ],
+                  ),
                 ),
                 const Spacer(),
                 Row(

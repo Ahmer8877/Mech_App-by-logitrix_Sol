@@ -310,6 +310,7 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       }
 
       final storageBucket = supabase.storage.from('avatars');
+      final documentsBucket = supabase.storage.from('mechanic_documents');
 
       // 1. Upload Profile Photo if provided
       String? avatarUrl = state.profile?.avatarUrl;
@@ -330,25 +331,25 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
       final frontBytes = await cnicFront.readAsBytes();
       final frontExt = cnicFront.name.split('.').last;
       final frontName =
-          'docs/$userId-cnic-front-${DateTime.now().millisecondsSinceEpoch}.$frontExt';
-      await storageBucket.uploadBinary(
+          '$userId/cnic-front-${DateTime.now().millisecondsSinceEpoch}.$frontExt';
+      await documentsBucket.uploadBinary(
         frontName,
         frontBytes,
         fileOptions: FileOptions(contentType: 'image/$frontExt', upsert: true),
       );
-      final cnicFrontUrl = storageBucket.getPublicUrl(frontName);
+      final cnicFrontUrl = documentsBucket.getPublicUrl(frontName);
 
       // 3. Upload CNIC Back Photo
       final backBytes = await cnicBack.readAsBytes();
       final backExt = cnicBack.name.split('.').last;
       final backName =
-          'docs/$userId-cnic-back-${DateTime.now().millisecondsSinceEpoch}.$backExt';
-      await storageBucket.uploadBinary(
+          '$userId/cnic-back-${DateTime.now().millisecondsSinceEpoch}.$backExt';
+      await documentsBucket.uploadBinary(
         backName,
         backBytes,
         fileOptions: FileOptions(contentType: 'image/$frontExt', upsert: true),
       );
-      final cnicBackUrl = storageBucket.getPublicUrl(backName);
+      final cnicBackUrl = documentsBucket.getPublicUrl(backName);
 
       // 4. Upload Workshop / Tools Photos
       final List<String> toolsUrls = [];
@@ -357,13 +358,13 @@ class AuthNotifier extends StateNotifier<AppAuthState> {
         final tBytes = await tFile.readAsBytes();
         final tExt = tFile.name.split('.').last;
         final tName =
-            'docs/$userId-tool-$i-${DateTime.now().millisecondsSinceEpoch}.$tExt';
-        await storageBucket.uploadBinary(
+            '$userId/tools-$i-${DateTime.now().millisecondsSinceEpoch}.$tExt';
+        await documentsBucket.uploadBinary(
           tName,
           tBytes,
           fileOptions: FileOptions(contentType: 'image/$tExt', upsert: true),
         );
-        toolsUrls.add(storageBucket.getPublicUrl(tName));
+        toolsUrls.add(documentsBucket.getPublicUrl(tName));
       }
 
       // 5. Save verification data. The account must already be a mechanic;

@@ -173,7 +173,7 @@ class BookingRepository {
           'longitude': longitude,
           'status': 'pending',
           'budget_price': budget ?? 0,
-          'payment_method': paymentMethod ?? 'Cash',
+          'payment_method': 'Cash',
         })
         .select('id')
         .single();
@@ -184,7 +184,7 @@ class BookingRepository {
     await client
         .from('bookings')
         .update({
-          'payment_method': method,
+          'payment_method': 'Cash',
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         })
         .eq('id', bookingId);
@@ -195,7 +195,7 @@ class BookingRepository {
         .from('bookings')
         .update({
           'is_paid': true,
-          'payment_method': method,
+          'payment_method': 'Cash',
           'status': 'completed',
           'updated_at': DateTime.now().toUtc().toIso8601String(),
         })

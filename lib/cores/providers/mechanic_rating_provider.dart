@@ -31,7 +31,9 @@ final mechanicRatingProvider = StreamProvider.family<double, String>((
         if (ratings.isNotEmpty) {
           final avg = ratings.reduce((a, b) => a + b) / ratings.length;
           final parsed = double.parse(avg.toStringAsFixed(1));
-          debugPrint('mechanicRatingProvider for $mechanicId: calculated from reviews = $parsed');
+          debugPrint(
+            'mechanicRatingProvider for $mechanicId: calculated from reviews = $parsed',
+          );
           return parsed;
         }
       }
@@ -46,7 +48,9 @@ final mechanicRatingProvider = StreamProvider.family<double, String>((
       final fallback = value is num
           ? value.toDouble()
           : (double.tryParse(value?.toString() ?? '') ?? 0.0);
-      debugPrint('mechanicRatingProvider for $mechanicId: fallback from profiles = $fallback');
+      debugPrint(
+        'mechanicRatingProvider for $mechanicId: fallback from profiles = $fallback',
+      );
       return fallback;
     } catch (e) {
       debugPrint('mechanicRatingProvider loadRating error for $mechanicId: $e');
@@ -102,7 +106,11 @@ extension _RatingStreamMerge<T> on Stream<T> {
       controller.close();
     }
 
-    first = listen(controller.add, onError: (e) => debugPrint('first stream error: $e'), onDone: close);
+    first = listen(
+      controller.add,
+      onError: (e) => debugPrint('first stream error: $e'),
+      onDone: close,
+    );
     second = other.listen(
       controller.add,
       onError: (e) => debugPrint('second stream error: $e'),
