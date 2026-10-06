@@ -8,17 +8,28 @@ import 'package:mech_app/cores/config/supabase_config.dart';
 import 'cores/providers/connectivity_provider.dart';
 import 'cores/providers/theme_provider.dart';
 import 'cores/providers/language_provider.dart';
+import 'cores/services/notification_push_service.dart';
 import 'cores/theme/app_theme.dart';
 import 'screens/splash/splash_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  ///firebase initialization
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   /// dotenv initialization
   await DotenvConfig.init();
 
   /// supabase initialization
   await SupabaseConfig.init();
+
+  /// OS-level push notification initialization.
+  /// This is a no-op until ONESIGNAL_APP_ID is configured.
+  await NotificationPushService.instance.initialize();
 
   /// app initialization wrapped in Riverpod ProviderScope
   runApp(const ProviderScope(child: MechXApp()));
@@ -34,6 +45,7 @@ class MechXApp extends ConsumerWidget {
     const supportedLocales = [Locale('en'), Locale('ur')];
 
     return MaterialApp(
+      navigatorKey: AppNavigator.key,
       title: 'MechX',
       debugShowCheckedModeBanner: false,
       locale: locale,
@@ -115,3 +127,5 @@ class MechXApp extends ConsumerWidget {
     );
   }
 }
+
+
