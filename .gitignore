@@ -45,5 +45,5 @@ app.*.map.json
 /android/app/release
 android/app/src/main/AndroidManifest.xml
 web/index.html
-/supabase/functions/compute-route/index.ts
+/supabase/notification_push_setup.sql
 .env*
