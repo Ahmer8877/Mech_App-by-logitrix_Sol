@@ -45,5 +45,6 @@ app.*.map.json
 /android/app/release
 android/app/src/main/AndroidManifest.xml
 web/index.html
-supabase
+supabase/
+supabase_schema.sql.txt
 .env*
