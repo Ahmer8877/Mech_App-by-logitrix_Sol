@@ -45,6 +45,5 @@ app.*.map.json
 /android/app/release
 android/app/src/main/AndroidManifest.xml
 web/index.html
-.supabase/
-supabase_schema.sql.txt
+/supabase/functions/compute-route/index.ts
 .env*
