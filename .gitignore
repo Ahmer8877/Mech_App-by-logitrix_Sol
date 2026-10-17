@@ -46,4 +46,5 @@ app.*.map.json
 android/app/src/main/AndroidManifest.xml
 web/index.html
 .env*
-/lib/firebase_options
+# Firebase configuration
+/lib/firebase_options.dart
