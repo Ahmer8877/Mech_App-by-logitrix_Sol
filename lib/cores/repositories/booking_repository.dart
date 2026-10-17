@@ -1,0 +1,235 @@
+import 'package:flutter/foundation.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../models/booking_model.dart';
+
+class BookingRepository {
+  final SupabaseClient client;
+  BookingRepository(this.client);
+
+  Future<List<Booking>> getCustomerBookings(String userId) async {
+    final rows = await client
+        .from('bookings')
+        .select(
+          '*, mechanic:profiles!bookings_mechanic_id_fkey(id,full_name,rating,phone_number), service:services(title)',
+        )
+        .eq('customer_id', userId)
+        .order('created_at', ascending: false);
+
+    final bookingList = (rows as List)
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    Map<String, double> reviewMap = {};
+    try {
+      final reviews = await client
+          .from('reviews')
+          .select('booking_id, rating')
+          .eq('customer_id', userId);
+
+      for (final r in (reviews as List)) {
+        final bId = r['booking_id']?.toString();
+        final rat = (r['rating'] as num?)?.toDouble();
+        if (bId != null && rat != null) {
+          reviewMap[bId] = rat;
+        }
+      }
+    } catch (e) {
+      debugPrint('getCustomerBookings reviews fetch error: $e');
+    }
+
+    for (final b in bookingList) {
+      final bId = b['id']?.toString();
+      if (bId != null && reviewMap.containsKey(bId)) {
+        b['user_rating'] = reviewMap[bId];
+      }
+    }
+
+    return bookingList.map((e) => Booking.fromMap(e)).toList();
+  }
+
+  Future<List<Booking>> getMechanicBookings(String userId) async {
+    final rows = await client
+        .from('bookings')
+        .select(
+          '*, customer:profiles!bookings_customer_id_fkey(id,full_name,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',
+        )
+        .eq('mechanic_id', userId)
+        .order('created_at', ascending: false);
+
+    final bookingList = (rows as List)
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    Map<String, double> reviewMap = {};
+    try {
+      final reviews = await client
+          .from('reviews')
+          .select('booking_id, rating')
+          .eq('mechanic_id', userId);
+
+      for (final r in (reviews as List)) {
+        final bId = r['booking_id']?.toString();
+        final rat = (r['rating'] as num?)?.toDouble();
+        if (bId != null && rat != null) {
+          reviewMap[bId] = rat;
+        }
+      }
+    } catch (e) {
+      debugPrint('getMechanicBookings reviews fetch error: $e');
+    }
+
+    for (final b in bookingList) {
+      final bId = b['id']?.toString();
+      if (bId != null && reviewMap.containsKey(bId)) {
+        b['user_rating'] = reviewMap[bId];
+      }
+    }
+
+    return bookingList.map((e) => Booking.fromMap(e)).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> getOpenRequests({
+    double? mechanicLat,
+    double? mechanicLng,
+    double maxDistanceMeters = 8000.0,
+  }) async {
+    final rows = await client
+        .from('bookings')
+        .select(
+          '*, customer:profiles!bookings_customer_id_fkey(id,full_name,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',
+        )
+        .isFilter('mechanic_id', null)
+        .or('status.eq.pending,status.eq.offered')
+        .order('created_at', ascending: false);
+
+    final list = (rows as List)
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    for (final req in list) {
+      final reqLat = (req['latitude'] as num?)?.toDouble();
+      final reqLng = (req['longitude'] as num?)?.toDouble();
+
+      if (mechanicLat != null &&
+          mechanicLng != null &&
+          reqLat != null &&
+          reqLng != null) {
+        final distMeters = Geolocator.distanceBetween(
+          mechanicLat,
+          mechanicLng,
+          reqLat,
+          reqLng,
+        );
+        req['distance_meters'] = distMeters;
+        req['distance_km'] = (distMeters / 1000.0).toStringAsFixed(1);
+        req['is_within_range'] = distMeters <= maxDistanceMeters;
+      } else {
+        req['is_within_range'] = true;
+      }
+    }
+
+    list.sort((a, b) {
+      final distA = (a['distance_meters'] as num?)?.toDouble() ?? 0;
+      final distB = (b['distance_meters'] as num?)?.toDouble() ?? 0;
+      return distA.compareTo(distB);
+    });
+
+    return list;
+  }
+
+  Future<Map<String, dynamic>?> getRawBooking(String id) async => await client
+      .from('bookings')
+      .select(
+        '*, customer:profiles!bookings_customer_id_fkey(id,full_name,phone_number), mechanic:profiles!bookings_mechanic_id_fkey(id,full_name,rating,phone_number), service:services(title), vehicle:vehicles(make_model,license_plate,year)',
+      )
+      .eq('id', id)
+      .maybeSingle();
+
+  Future<String> createBooking({
+    required String customerId,
+    required String vehicleId,
+    required String serviceId,
+    required String serviceTitle,
+    required String description,
+    required List<String> photoUrls,
+    required String address,
+    double? latitude,
+    double? longitude,
+    double? budget,
+    String? paymentMethod,
+  }) async {
+    final res = await client
+        .from('bookings')
+        .insert({
+          'customer_id': customerId,
+          'vehicle_id': vehicleId,
+          'service_id': serviceId,
+          'service_title': serviceTitle,
+          'description': description,
+          'photo_urls': photoUrls,
+          'pickup_address': address,
+          'latitude': latitude,
+          'longitude': longitude,
+          'status': 'pending',
+          'budget_price': budget ?? 0,
+          'payment_method': 'Cash',
+        })
+        .select('id')
+        .single();
+    return res['id'].toString();
+  }
+
+  Future<void> setPaymentMethod(String bookingId, String method) async {
+    await client
+        .from('bookings')
+        .update({
+          'payment_method': 'Cash',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
+  }
+
+  Future<void> markPaid(String bookingId, String method) async {
+    await client
+        .from('bookings')
+        .update({
+          'is_paid': true,
+          'payment_method': 'Cash',
+          'status': 'completed',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
+  }
+
+  Future<void> updateStatus(String bookingId, String status) async {
+    await client
+        .from('bookings')
+        .update({
+          'status': status,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
+  }
+
+  Future<void> complete(String bookingId) async {
+    await client
+        .from('bookings')
+        .update({
+          'status': 'completed',
+          'is_paid': true,
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
+  }
+
+  Future<void> cancel(String bookingId) async {
+    await client
+        .from('bookings')
+        .update({
+          'status': 'cancelled',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        })
+        .eq('id', bookingId);
+  }
+}

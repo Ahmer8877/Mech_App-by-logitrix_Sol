@@ -1,0 +1,403 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import '../../widgets/app_text.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../cores/providers/auth_provider.dart';
+import '../../cores/providers/services_provider.dart';
+import '../../cores/theme/app_theme.dart';
+import '../../widgets/app_atoms.dart';
+import '../../widgets/app_buttons.dart';
+import '../../cores/models/user_role.dart';
+import '../notification/notifications_screen.dart';
+import '../call/call_history_screen.dart';
+import '../profile/profile_screen.dart';
+import 'select_vehicle_screen.dart';
+import 'booking_history_screen.dart';
+import 'chat_history_screen.dart';
+import 'all_services_screen.dart';
+import 'service_details_screen.dart';
+
+class CustomerHomeScreen extends ConsumerStatefulWidget {
+  const CustomerHomeScreen({super.key});
+
+  @override
+  ConsumerState<CustomerHomeScreen> createState() => _CustomerHomeScreenState();
+}
+
+class _CustomerHomeScreenState extends ConsumerState<CustomerHomeScreen> {
+  int _navIndex = 0;
+  late DateTime _currentTime;
+  Timer? _greetingTimer;
+  bool _profileDialogShown = false;
+  final TextEditingController _serviceSearchController =
+      TextEditingController();
+  String _serviceSearch = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _currentTime = DateTime.now();
+    _greetingTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() => _currentTime = DateTime.now());
+    });
+
+    // The dialog is triggered from the first build once the profile is available.
+    // No artificial delay is used.
+  }
+
+  void _showProfileCompletionDialog() {
+    if (!mounted || _profileDialogShown) return;
+    final profile = ref.read(currentUserProfileProvider);
+    final isIncomplete =
+        profile.fullName.trim().isEmpty ||
+        profile.fullName.trim().toLowerCase() == 'user' ||
+        profile.phone.trim().isEmpty;
+    if (!isIncomplete) return;
+    _profileDialogShown = true;
+
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => AlertDialog(
+        title: const AppText('Complete Your Profile'),
+        content: const AppText(
+          'Add your name and phone number so mechanics can contact you and your requests stay complete.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const AppText('Later'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              setState(() => _navIndex = 4);
+            },
+            child: const AppText('Complete Profile'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _greetingTimer?.cancel();
+    _serviceSearchController.dispose();
+    super.dispose();
+  }
+
+  String _getGreeting() {
+    final hour = _currentTime.hour;
+    if (hour < 12) {
+      return 'Good Morning';
+    } else if (hour < 17) {
+      return 'Good Afternoon';
+    } else if (hour < 21) {
+      return 'Good Evening';
+    } else {
+      return 'Good Night';
+    }
+  }
+
+  Widget _buildHomeContent(BuildContext context, WidgetRef ref) {
+    final scheme = Theme.of(context).colorScheme;
+    final c = context.colors;
+    final userProfile = ref.watch(currentUserProfileProvider);
+    if (!_profileDialogShown) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showProfileCompletionDialog();
+      });
+    }
+    final servicesAsync = ref.watch(servicesProvider);
+    final allServices = servicesAsync.valueOrNull ?? const [];
+    final popularServices = allServices.take(6).toList();
+    final matchingServices = _serviceSearch.trim().isEmpty
+        ? popularServices
+        : allServices
+              .where(
+                (s) =>
+                    s.title.toLowerCase().contains(
+                      _serviceSearch.trim().toLowerCase(),
+                    ) ||
+                    s.description.toLowerCase().contains(
+                      _serviceSearch.trim().toLowerCase(),
+                    ),
+              )
+              .take(9)
+              .toList();
+
+    final firstName = userProfile.fullName.trim().split(' ').first;
+    final greeting = _getGreeting();
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 8, 18, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppText(
+                        '$greeting, $firstName 👋',
+                        style: Theme.of(
+                          context,
+                        ).textTheme.titleLarge?.copyWith(fontSize: 17),
+                      ),
+                      AppText(
+                        '📍 Choose pickup location when creating a request',
+                        style: TextStyle(fontSize: 11, color: c.textMuted),
+                      ),
+                    ],
+                  ),
+                ),
+                Row(
+                  children: [
+                    NotificationIconButton(
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const NotificationsScreen(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: () => setState(() => _navIndex = 4),
+                      child: CircleAvatar(
+                        radius: 17,
+                        backgroundColor: c.surface2,
+                        backgroundImage:
+                            userProfile.avatarUrl != null &&
+                                userProfile.avatarUrl!.isNotEmpty
+                            ? CachedNetworkImageProvider(userProfile.avatarUrl!)
+                                  as ImageProvider
+                            : null,
+                        child:
+                            (userProfile.avatarUrl == null ||
+                                userProfile.avatarUrl!.isEmpty)
+                            ? AppText(
+                                userProfile.initials,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: scheme.primary,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              decoration: BoxDecoration(
+                color: c.surface2,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.search, size: 18, color: c.textMuted),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: TextField(
+                      controller: _serviceSearchController,
+                      onChanged: (value) =>
+                          setState(() => _serviceSearch = value),
+                      decoration: const InputDecoration(
+                        hintText: 'What service do you need?',
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  if (_serviceSearch.isNotEmpty)
+                    IconButton(
+                      onPressed: () {
+                        _serviceSearchController.clear();
+                        setState(() => _serviceSearch = '');
+                      },
+                      icon: const Icon(Icons.close, size: 16),
+                    ),
+                ],
+              ),
+            ),
+            if (_serviceSearch.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              if (matchingServices.isEmpty)
+                const AppText('No matching services found.'),
+              ...matchingServices.map(
+                (service) => ListTile(
+                  dense: true,
+                  leading: Icon(service.icon, color: scheme.primary),
+                  title: AppText(service.title),
+                  subtitle: AppText(service.description, maxLines: 1),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => ServiceDetailsScreen(service: service),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [scheme.primary, c.primaryStrong],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppText(
+                    'Need a mechanic right now?',
+                    style: TextStyle(
+                      color: scheme.onPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  AppText(
+                    'Get matched in under 2 minutes',
+                    style: TextStyle(
+                      color: scheme.onPrimary.withValues(alpha: 0.8),
+                      fontSize: 10.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: 150,
+                    child: AccentButton(
+                      label: 'Request Now',
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const SelectVehicleScreen(),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const AppText(
+                  'Popular Services',
+                  style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+                ),
+                GestureDetector(
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const AllServicesScreen(),
+                    ),
+                  ),
+                  child: AppText(
+                    'View all',
+                    style: TextStyle(fontSize: 10.5, color: scheme.primary),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (servicesAsync.isLoading)
+              const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: CircularProgressIndicator(),
+                ),
+              )
+            else if (servicesAsync.hasError)
+              Row(
+                children: [
+                  AppText(
+                    'Services unavailable',
+                    style: TextStyle(fontSize: 11, color: c.textMuted),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: () => ref.invalidate(servicesProvider),
+                    child: const AppText('Retry'),
+                  ),
+                ],
+              )
+            else
+              GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 3,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                childAspectRatio: 1.05,
+                children: popularServices
+                    .map(
+                      (s) => ServiceTile(
+                        icon: s.icon,
+                        label: s.title,
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => ServiceDetailsScreen(service: s),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List<Widget> pages = [
+      RepaintBoundary(child: _buildHomeContent(context, ref)),
+      const RepaintBoundary(child: BookingHistoryScreen()),
+      const RepaintBoundary(child: ChatHistoryScreen()),
+      const RepaintBoundary(child: CallHistoryScreen()),
+      const RepaintBoundary(child: ProfileScreen(role: UserRole.customer)),
+    ];
+
+    return Scaffold(
+      body: IndexedStack(index: _navIndex, children: pages),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _navIndex,
+        onDestinationSelected: (i) => setState(() => _navIndex = i),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'),
+          NavigationDestination(
+            icon: Icon(Icons.receipt_long_outlined),
+            label: 'Bookings',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Chat',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.history_toggle_off_outlined),
+            label: 'Calls',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            label: 'Profile',
+          ),
+        ],
+      ),
+    );
+  }
+}

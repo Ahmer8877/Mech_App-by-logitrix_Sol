@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "990387799213",
+    "project_id": "mechx-e9307",
+    "storage_bucket": "mechx-e9307.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:990387799213:android:60f2beb7637e7b601c3224",
+        "android_client_info": {
+          "package_name": "com.example.mech_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDEO9mGGExiErqGsZ_qp7Kvl_JiUJ7Oj68"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
