@@ -61,7 +61,7 @@ class _SetLocationScreenState extends ConsumerState<SetLocationScreen> {
     final address = _addressController.text.trim();
     final enteredBudget = double.tryParse(_budgetController.text.trim());
     final budget = enteredBudget ?? service.basePrice;
-
+    //
     // if (_currentPosition == null) {
     //   ScaffoldMessenger.of(context).showSnackBar(
     //     const SnackBar(
